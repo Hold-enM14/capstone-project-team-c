@@ -18,6 +18,7 @@ Can weather and environmental factors (such as temperature, humidity, wind speed
 ## Hypothesis & Predictions
  
 **Hypothesis:** Poor weather conditions (higher temperatures, humidity, wind speed, precipitation, or worse air quality) are associated with a lower proportion of finishers.
+
 **Predictions:**  Races held in hotter, more humid, or poor air quality conditions are expected to have fewer finishers, while moderate temperatures, clearer days should see higher completion rates.
 
 ## Team Members
