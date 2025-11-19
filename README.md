@@ -24,7 +24,7 @@ Can weather and environmental factors—such as temperature, wind speed, precipi
 
 ## Folder Structure 
 
-- `data`: contains the dataset and data dictionary 
+- `data`: contains the raw datasets, merged dataset, and data dictionary 
 - `notebooks`: contains the R Markdown source files with all code and analysis. 
 - `reports`: contains all reports 
 - `README.md`: project overview 
