@@ -4,7 +4,7 @@ Predicting Marathon Average Finishing Times: The Impact of Weather and Air Quali
 ## Background: 
 Research has shown weather conditions and air quality can significantly affect a runner's marathon performance.
 
-This project explores how environmental factors—such as temperature, dew point, wind speed, precipitation, visibility, and air quality collectively impact average finishing times across different performance groups (elite, competitive, intermediate, recreational and slow runners). The goal is to determine whether these conditions can help predict how different groups of runners are affected by the environment in a given year.
+This project explores how environmental factors—such as temperature, dew point, wind speed, precipitation, visibility, and air quality collectively impact average finishing times across different performance groups (elite, competitive, intermediate, recreational and slow runners) and genders. The goal is to determine whether these conditions can help predict how different groups of runners are affected by the environment in a given year.
 
 Understanding these patterns can help:
 
