@@ -33,10 +33,10 @@ Can weather and environmental factors—such as temperature, wind speed, precipi
 
 ## How to Run
 1. Clone the repository
-2. Open the project - Open capstone-project-team-c.Rproj in RStudio (sets the project root).
+2. Open the project - Open capstone-project-team-c.Rproj in RStudio (sets the project root)
+3. Open the `notebooks` folder and select an .Rmd
 3. Install any required packages (once per machine)
-4. Load libraries in notebooks
-5. Load data using project-relative paths (e.g. final_data <- read.csv(here("data", "merged_marathon_data.csv")))
+4. Run the .Rmd
 
 ## Team Members
 - Krisha Bugajski-Sharp
