@@ -29,7 +29,6 @@ Can weather and environmental factors—such as temperature, wind speed, precipi
 - `reports`: contains all reports 
 - `capstone-project-team-c.Rproj`: The RStudio Project file. Opening this file sets the project root
 - `README.md`: project overview 
-- `required
 
 ## How to Run
 1. Clone the repository
