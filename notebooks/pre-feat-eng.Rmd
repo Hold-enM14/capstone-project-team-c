@@ -11,7 +11,7 @@ library(dplyr)
 library(knitr)
 library(tidyr)
 library(ggplot2)
-library(VIM)
+library(corrplot)
 ```
 
 Importing the data
@@ -61,7 +61,14 @@ main_data <- main_data %>%
 Since PM2.5 is often the main pollutant, we decided to use KNN imputation to fill missing PM2.5 values because it predicts missing data using similar rows without assuming a specific parametric relationship, preserves variance, and works well for our relatively small dataset while using correlations with other environmental variables
 ```{r}
 # Impute missing PM2.5 values using 5 nearest neighbors
-main_data <- kNN(main_data, variable = "pm25", k = 5) # can change later to see whihc K gives best model preformace 
+main_data <- kNN(main_data, variable = "pm25", k = 5) # can change later to see which K gives best model performance 
+
+# remove pm25_imp
+cols_to_remove <- c(
+  "pm25_imp"
+)
+
+main_data <- main_data[, !(names(main_data) %in% cols_to_remove)]
 
 # Check that missing values are filled
 summary(main_data$pm25)
@@ -76,7 +83,6 @@ main_data  <- main_data  %>%
          marathon = factor(marathon),
          main_pollutant = factor(main_pollutant))
 
-# look at structure
 str(main_data )
 ```
 # Feature engineering 
@@ -85,10 +91,9 @@ str(main_data )
 # create interaction terms and convert supershoe to factor
 main_data <- main_data %>%
   mutate(
-    pm25_imp  = factor(pm25_imp, levels = c(FALSE, TRUE)),
     supershoe = factor(ifelse(year >= 2018, 1, 0), levels = c(0, 1)),
     temp_dew_interaction       = avg_temp * dew_point,
-    temp_aqi_interaction       = avg_temp * aqi, # optional
+    temp_aqi_interaction       = avg_temp * aqi, 
     temp_precip_interaction    = avg_temp * precipitation,
     temp_wind_interaction      = avg_temp * wind_speed,
     pm25_temp_interaction      = pm25 * avg_temp,
@@ -103,50 +108,84 @@ str(main_data)
 # Need to do a Quick correlation check for numeric variables and see what features inroduce multicollinearity
 
 ```{r}
-#CODE HERE, where I stoped
-```
-
-
-
-
-```{r}
-# Load package
-library(car)
-
-# Select numeric columns only (exclude factors like gender, subgroup, supershoe, pm25_imp)
+# Find numeric columns after feature engineering, excluding 'year'
 numeric_vars <- main_data %>%
-  select(where(is.numeric))
-
-# Fit a linear model with all numeric predictors
-vif_model <- lm(avg_chip_seconds ~ ., data = numeric_vars)
-
-# Compute VIFs
-vif_values <- vif(vif_model)
-
-# Sort and view
-vif_values_sorted <- sort(vif_values, decreasing = TRUE)
-vif_values_sorted
-
-```
-
-
-# Data Processing 
-```{r}
-# scale numerics
-scale_vars <- main_data %>%
-  select(
-    high_temp, low_temp, avg_temp, precipitation, dew_point,
-    wind_speed, visibility, sea_level_pressure, aqi, pm10, pm25, no2, ozone, co
-  ) %>%
+  select(where(is.numeric)) %>%
+  select(-year) %>% 
   names()
 
-# apply scaling
-final_data_scaled <- final_data %>%
-  mutate(across(all_of(scale_vars), scale))
+numeric_vars
+```
+
+Correlation matrix
+```{r}
+cor_matrix <- cor(main_data[numeric_vars], use = "pairwise.complete.obs")
+
+# rounding
+round(cor_matrix, 2)
+```
+
+```{r}
+corrplot(
+  cor_matrix,
+  method = "color",
+  col = colorRampPalette(c("blue", "white", "red"))(200),
+  tl.cex = 0.6
+)
+```
+
+Observing categorical variables and their distributions
+```{r}
+table(main_data$pm25_imp)
+table(main_data$main_pollutant)
+table(main_data$supershoe)
+```
+
+Removing correlated variables
+```{r}
+cols_to_remove <- c(
+  "high_temp",
+  "low_temp",
+  "aqi",
+  "temp_dew_interaction",
+  "temp_precip_interaction",
+  "temp_wind_interaction",
+  "pm25_temp_interaction",
+  "dew_wind_interaction",
+  "pressure_temp_interaction",
+  "main_pollutant" 
+)
+
+main_data <- main_data[, !(names(main_data) %in% cols_to_remove)]
+str(main_data)
+
+```
+
+# Data Scaling (for linear regression model)
+
+```{r}
+# Identify numeric predictors to scale (exclude outcome and identifiers)
+numeric_vars <- main_data %>%
+  select(where(is.numeric)) %>%
+  select(-avg_chip_seconds, -year, -n) %>%
+  names()
+
+# Create scaled versions of the numeric predictors (scaled variables with "scaled_")
+scaled_vars <- paste0("scaled_", numeric_vars)
+main_data[scaled_vars] <- scale(main_data[numeric_vars])
+
+str(main_data)
+
 ```
 
 
+```{r}
+# summary of scaled variables
+summary(main_data[scaled_vars])
 
+```
+
+#(Ended HERE)
 
 ```{r}
 # split data into train and test
@@ -330,26 +369,6 @@ rf_r2
 ```
 
 
-
-Normalization on the continuous predictors (Keeping both sets (Before and after scaling) for the different models)
-```{r}
-# Find the continuous predictors
-continuous_vars <- c(
-  "high_temp", "low_temp", "avg_temp", "precipitation",
-  "dew_point", "wind_speed", "visibility", "sea_level_pressure",
-  "aqi", "co", "ozone", "pm10", "pm25", "no2"
-)
-
-# Standardize also knwon as z-score normalize the continuous predictors
-final_data_scaled <- final_data %>%
-  mutate(across(all_of(continuous_vars), ~ as.numeric(scale(.)), 
-                .names = "{.col}_scaled"))
-
-# Check results
-summary(final_data_scaled)
-```
-
-
 ------------------------
 IDEAS:
 
@@ -384,3 +403,19 @@ final_data <- final_data %>%
     )
   )
 
+# create interaction terms and convert supershoe to factor
+main_data <- main_data %>%
+  mutate(
+    pm25_imp  = factor(pm25_imp, levels = c(FALSE, TRUE)), # i dont think we need this
+    supershoe = factor(ifelse(year >= 2018, 1, 0), levels = c(0, 1)),
+    temp_dew_interaction       = avg_temp * dew_point,
+    temp_aqi_interaction       = avg_temp * aqi, # optional
+    temp_precip_interaction    = avg_temp * precipitation,
+    temp_wind_interaction      = avg_temp * wind_speed,
+    pm25_temp_interaction      = pm25 * avg_temp,
+    dew_wind_interaction       = dew_point * wind_speed,
+    pressure_temp_interaction  = sea_level_pressure * avg_temp,
+    avg_temp_gender_interaction = avg_temp * as.numeric(gender == "male")
+  )
+
+str(main_data)
