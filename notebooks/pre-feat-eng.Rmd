@@ -12,6 +12,7 @@ library(knitr)
 library(tidyr)
 library(ggplot2)
 library(corrplot)
+library(VIM)
 ```
 
 Importing the data
@@ -136,7 +137,7 @@ corrplot(
 
 Observing categorical variables and their distributions
 ```{r}
-table(main_data$pm25_imp)
+table(main_data$pm25_imp) # think this will error out since pm25_imp is removed above
 table(main_data$main_pollutant)
 table(main_data$supershoe)
 ```
@@ -191,21 +192,21 @@ summary(main_data[scaled_vars])
 # split data into train and test
 set.seed(123)
 
-train_index <- sample(1:nrow(final_data_scaled), size = 0.8*nrow(final_data_scaled))
+train_index <- sample(1:nrow(main_data), size = 0.8 * nrow(main_data))
 
-train_data <- final_data_scaled[train_index, ]
-test_data  <- final_data_scaled[-train_index, ]
+train_data <- main_data[train_index, ]
+test_data  <- main_data[-train_index, ]
 ```
 
 ```{r}
-# environmental predictors
+# updated environmental predictors
 env_vars <- c(
-  "high_temp", "low_temp", "avg_temp",
-  "precipitation", "dew_point", "wind_speed",
+  "avg_temp", "precipitation", "dew_point",
+  "wind_speed", "visibility", 
   "sea_level_pressure", "pm25", "no2", "ozone"
 )
 
-env_data <- final_data_scaled %>%
+env_data <- main_data %>%
   select(all_of(env_vars))
 
 pca_env <- prcomp(env_data, center = TRUE, scale. = TRUE)
@@ -247,41 +248,55 @@ ggplot(pca_var, aes(x = as.numeric(gsub("PC", "", PC)), y = Proportion_Variance)
 pca_scores <- as.data.frame(pca_env$x[, 1:3])
 colnames(pca_scores) <- c("PC1_env", "PC2_env", "PC3_env")
 
-final_data_pca <- final_data_scaled %>%
+main_data_pca <- main_data %>%
   bind_cols(pca_scores)
 ```
 
 ```{r}
-final_data_pca <- final_data_pca %>%
+main_data_pca <- main_data_pca %>%
   mutate(
     marathon = factor(marathon),
     gender = factor(gender),
-    subgroup2 = factor(subgroup2)
+    subgroup = factor(subgroup),
+    supershoe = factor(supershoe)
   )
 ```
 
 ```{r}
 set.seed(123)
 
-train_index <- sample(1:nrow(final_data_pca), size = 0.8 * nrow(final_data_pca))
+train_index <- sample(1:nrow(main_data_pca), size = 0.8 * nrow(main_data_pca))
 
-train_data <- final_data_pca[train_index, ]
-test_data  <- final_data_pca[-train_index, ]
+train_data <- main_data_pca[train_index, ]
+test_data  <- main_data_pca[-train_index, ]
 ```
 
 ```{r}
 lm_full <- lm(
-  avg_chip_seconds ~ marathon + gender + subgroup2 +
-    supershoe_era + covid_era +
-    high_temp + low_temp + avg_temp +
-    precipitation + dew_point + wind_speed +
-    sea_level_pressure + pm25 + no2 + ozone +
-    temp_dew_interaction + temp_aqi_interaction + 
-    temp_precip_interaction + temp_wind_interaction + pm25_temp_interaction + dew_wind_interaction +     pressure_temp_interaction + avg_temp_gender_interaction,
+  avg_chip_seconds ~ marathon + gender + subgroup +
+    supershoe +
+    avg_temp + precipitation + dew_point +
+    wind_speed + visibility + sea_level_pressure +
+    pm25 + no2 + ozone +
+    temp_aqi_interaction + avg_temp_gender_interaction,
   data = train_data
 )
 
 summary(lm_full)
+
+
+#lm_full <- lm(
+#  avg_chip_seconds ~ marathon + gender + subgroup2 +
+#    supershoe_era + covid_era +
+#    high_temp + low_temp + avg_temp +
+#    precipitation + dew_point + wind_speed +
+#    sea_level_pressure + pm25 + no2 + ozone +
+#    temp_dew_interaction + temp_aqi_interaction + 
+#    temp_precip_interaction + temp_wind_interaction + pm25_temp_interaction + dew_wind_interaction #+     pressure_temp_interaction + avg_temp_gender_interaction,
+#  data = train_data
+#)
+
+#summary(lm_full)
 ```
 
 ```{r}
@@ -303,9 +318,8 @@ lm_full_r2
 
 ```{r}
 lm_pca <- lm(
-  avg_chip_seconds ~ marathon + gender + subgroup2 +
-    supershoe_era + covid_era +
-    PC1_env + PC2_env + PC3_env,
+  avg_chip_seconds ~ marathon + gender + subgroup +
+    supershoe + PC1_env + PC2_env + PC3_env,
   data = train_data
 )
 
@@ -324,7 +338,7 @@ lm_pca_r2
 
 ```{r}
 model_compare <- data.frame(
-  Model = c("Full Linear", "PCA Linear (PC1–PC3)"),
+  Model = c("Full Linear Model", "PCA Linear Model"),
   RMSE  = c(lm_full_rmse, lm_pca_rmse),
   R2    = c(lm_full_r2,   lm_pca_r2)
 )
@@ -341,14 +355,12 @@ library(randomForest)
 set.seed(123)
 
 rf_model <- randomForest(
-  avg_chip_seconds ~ marathon + gender + subgroup2 +
-    supershoe_era + covid_era +
-    high_temp + low_temp + avg_temp +
-    precipitation + dew_point + wind_speed +
-    sea_level_pressure +
-    pm25 + no2 + ozone +  
-    temp_dew_interaction + temp_aqi_interaction + 
-    temp_precip_interaction + temp_wind_interaction + pm25_temp_interaction + dew_wind_interaction +     pressure_temp_interaction + avg_temp_gender_interaction,
+  avg_chip_seconds ~ marathon + gender + subgroup +
+    supershoe +
+    avg_temp + precipitation + dew_point + 
+    wind_speed + visibility + sea_level_pressure +
+    pm25 + no2 + ozone +
+    temp_aqi_interaction + avg_temp_gender_interaction,
   data = train_data,
   ntree = 500,
   mtry = 5,
