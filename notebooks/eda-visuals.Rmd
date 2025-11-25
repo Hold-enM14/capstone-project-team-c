@@ -138,7 +138,7 @@ round(cor_matrix, 2)
 
 #Correlation Heat map
 corrplot(
-  cor_mat,
+  cor_matrix,
   method="color",col=colorRampPalette(c("darkblue", "white", "red"))(200),
   addCoef.col="black", tl.col="black", tl.srt=45             
 )
@@ -632,5 +632,22 @@ ggplot(NYC, aes(x = "", y =avg_chip_seconds / 3600)) +
   theme(axis.title.x = element_blank(),
         axis.text.x  = element_blank(),
         axis.ticks.x = element_blank())
+```
+
+```{r}
+continuous_vars <- final_data %>% 
+  select(avg_chip_seconds, high_temp, low_temp, avg_temp, 
+         dew_point, wind_speed, visibility, sea_level_pressure,
+         aqi, co, ozone, pm10, pm25, no2) %>%
+  pivot_longer(everything(), names_to = "variable", values_to = "value")
+
+ggplot(continuous_vars, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "#4A90E2", color = "white") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  labs(title = "Histograms of Continuous Variables",
+       x = "Value",
+       y = "Count")
+
 ```
 
