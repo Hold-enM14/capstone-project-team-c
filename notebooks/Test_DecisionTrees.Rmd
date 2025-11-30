@@ -269,8 +269,8 @@ str(final_data)
 
 #(KB from inital-modeling)
 #clean environment up a little bit
-#rm(boston, boston_clean, berlin, berlin_clean,nyc,nyc_clean,chicago,chicago_clean,
-#   marathons_all, airquality, airquality_clean,avg_times,weather,weather_clean,runners,clean_chip_time)
+rm(boston, boston_clean, berlin, berlin_clean,nyc,nyc_clean,chicago,chicago_clean,
+   marathons_all, airquality, airquality_clean,avg_times,weather,weather_clean,runners,clean_chip_time)
 
 # Impute missing PM2.5 values using 5 nearest neighbors
 final_data <- kNN(final_data, variable = "pm25", k = 5) # can change later to see which K gives best model performance 
@@ -327,52 +327,120 @@ berlin_data <- final_data %>% filter(marathon == "Berlin")
 final_data <- final_data %>% filter(marathon != "Berlin")
 ```
 
+```{r}
+#Add our 90/10 training/test split (ZD) (KB)
+# split data into train and test
+set.seed(123)
+
+train_index <- sample(1:nrow(final_data), size = 0.9 * nrow(final_data)) # use a 90/10 split
+
+train_data <- final_data[train_index, ]
+test_data  <- final_data[-train_index, ]
+```
 
 ```{r}
 #Decision tree looking at weather and airquality features to consider breaking down into bins
-#reference: https://bradleyboehmke.github.io/HOML/DT.html
+#reference: https://bradleyboehmke.github.io/HOML/DT.html (MH) (KB)
 
 feature_check <- rpart(
   avg_chip_seconds ~ avg_temp + precipitation + dew_point + wind_speed + visibility +
     sea_level_pressure + co + ozone + pm25 + no2 + supershoe + temp_aqi_interaction + covid_era,
-  data = final_data,
+  data = train_data,
   method = "anova"
 )
 
 # Plot showing important features and potential bins
 rpart.plot(feature_check)
 ```
-
-
 ```{r}
-#Categorical bins from tree
-final_data$temp_bin <- cut(final_data$avg_temp,
-                           breaks = c(-Inf, 56, 66, Inf),
-                           labels = c("cool", "moderate", "warm")
-)
+# Categorical bins from tree (TRAIN ONLY) (MH) (KB)
 
-final_data$ozone_bin <- ifelse(final_data$ozone >= 41, "higher", "lower")
+# wind speed bin
+train_data$wind_bin <- ifelse(train_data$wind_speed >= 13,
+                              "high_wind",
+                              "low_wind")
 
-final_data$sea_level_pressure_bin <- ifelse(final_data$sea_level_pressure <30, "lower", "higher")
+# ozone bin
+train_data$ozone_bin <- ifelse(train_data$ozone >= 38,
+                               "high_ozone",
+                               "low_ozone")
 
-final_data$pm25_bin <- ifelse(final_data$pm25 >= 62, "very high", "lower")
+# temp bins (merging 'cool' and 'moderate', since moderate is a tiny bin)
+train_data$temp_bin <- cut(train_data$avg_temp,
+                           breaks = c(-Inf, 58, Inf),  # merge 'cool' and 'moderate'
+                           labels = c("cool_moderate", "warm"),
+                           right = FALSE)
+
+# pm2.5 bin
+train_data$pm25_bin <- ifelse(train_data$pm25 >= 54,
+                              "high_pm25",
+                              "low_pm25")
+
+# temp × aqi interaction bin
+train_data$temp_aqi_bin <- ifelse(train_data$temp_aqi_interaction >= 2789,
+                                  "high_interaction",
+                                  "low_interaction")
+
 ```
 
+```{r}
+# Comparing models with continuous and binned data (TRAIN ONLY) (MH)(KB)
+
+# continuous-only model
+model_cont <- lm(avg_chip_seconds ~ avg_temp + ozone + pm25 + wind_speed + temp_aqi_interaction,
+                 data = train_data)
+
+# full binned model
+model_bin <- lm(avg_chip_seconds ~ temp_bin + ozone_bin + pm25_bin + wind_bin + temp_aqi_bin,
+                data = train_data)
+
+# temperature binned with all others continuous
+model_temp <- lm(avg_chip_seconds ~ temp_bin + ozone + pm25 + wind_speed + temp_aqi_interaction,
+                 data = train_data)
+
+# temperature and ozone binned with all others continuous
+model_temp_ozone <- lm(avg_chip_seconds ~ temp_bin + ozone_bin + pm25 + wind_speed + temp_aqi_interaction,
+                       data = train_data)
+
+# air quality binned (ozone + pm25) with temperature continuous
+model_airbin <- lm(avg_chip_seconds ~ avg_temp + ozone_bin + pm25_bin + wind_speed + temp_aqi_interaction,
+                   data = train_data)
+
+# ozone binned only
+model_ozone <- lm(avg_chip_seconds ~ avg_temp + ozone_bin + pm25 + wind_speed + temp_aqi_interaction,
+                  data = train_data)
+
+```
 
 ```{r}
-#Comparing models with continuous and binned data
-model_cont <- lm(avg_chip_seconds ~ avg_temp + ozone + sea_level_pressure + pm25, data = final_data)
+#Categorical bins from tree (MH)
+#train_data$temp_bin <- cut(train_data$avg_temp,
+#                           breaks = c(-Inf, 56, 66, Inf),
+#                           labels = c("cool", "moderate", "warm")
+#)
 
-model_bin <- lm(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure_bin + pm25_bin, data = final_data)
+#train_data$ozone_bin <- ifelse(train_data$ozone >= 41, "higher", "lower")
 
-model_temp <- lm(avg_chip_seconds ~ temp_bin + ozone + sea_level_pressure + pm25, data = final_data)
+#train_data$sea_level_pressure_bin <- ifelse(train_data$sea_level_pressure <30, "lower", "higher")
 
-model_temp_ozone <- lm(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure + pm25, data = final_data)
-
-model_airbin <- lm(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25_bin, data = final_data)
-
-model_ozone <- lm(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25, data = final_data)
+#train_data$pm25_bin <- ifelse(train_data$pm25 >= 62, "very high", "lower")
 ```
+
+```{r}
+#Comparing models with continuous and binned data (MH)
+#model_cont <- lm(avg_chip_seconds ~ avg_temp + ozone + sea_level_pressure + pm25, data = train_data)
+
+#model_bin <- lm(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure_bin + pm25_bin, data = train_data)
+
+#model_temp <- lm(avg_chip_seconds ~ temp_bin + ozone + sea_level_pressure + pm25, data = train_data)
+
+#model_temp_ozone <- lm(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure + pm25, data = train_data)
+
+#model_airbin <- lm(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25_bin, data = train_data)
+
+#model_ozone <- lm(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25, data = train_data)
+```
+
 
 ```{r}
 #Comparing R2
@@ -391,41 +459,78 @@ AIC(model_airbin)
 AIC(model_ozone)
 ```
 
-
 ```{r}
-#caret cross validation results
+# caret cross-validation results (TRAINING DATA)
 set.seed(123)
 train_control <- trainControl(method = "cv", number = 10)
 
-cv_cont <- train(avg_chip_seconds ~ avg_temp + ozone + sea_level_pressure + pm25,
-                 data = final_data,
+cv_cont <- train(avg_chip_seconds ~ avg_temp + ozone + pm25 + wind_speed + temp_aqi_interaction,
+                 data = train_data,
                  method = "lm",
                  trControl = train_control)
 
-cv_bin <- train(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure_bin + pm25_bin,
-                data = final_data,
+cv_bin <- train(avg_chip_seconds ~ temp_bin + ozone_bin + pm25_bin + wind_bin + temp_aqi_bin,
+                data = train_data,
                 method = "lm",
                 trControl = train_control)
 
-cv_temp <- train(avg_chip_seconds ~ temp_bin + ozone + sea_level_pressure + pm25,
-                 data = final_data,
+cv_temp <- train(avg_chip_seconds ~ temp_bin + ozone + pm25 + wind_speed + temp_aqi_interaction,
+                 data = train_data,
                  method = "lm",
                  trControl = train_control)
 
-cv_temp_ozone <- train(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure + pm25,
-                       data = final_data,
+cv_temp_ozone <- train(avg_chip_seconds ~ temp_bin + ozone_bin + pm25 + wind_speed + temp_aqi_interaction,
+                       data = train_data,
                        method = "lm",
                        trControl = train_control)
 
-cv_airbin <- train(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25_bin,
-                   data = final_data,
+cv_airbin <- train(avg_chip_seconds ~ avg_temp + ozone_bin + pm25_bin + wind_speed + temp_aqi_interaction,
+                   data = train_data,
                    method = "lm",
                    trControl = train_control)
 
-cv_ozone <- train(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25,
-                  data = final_data,
+cv_ozone <- train(avg_chip_seconds ~ avg_temp + ozone_bin + pm25 + wind_speed + temp_aqi_interaction,
+                  data = train_data,
                   method = "lm",
                   trControl = train_control)
+
+```
+
+
+```{r}
+#caret cross validation results
+#set.seed(123)
+#train_control <- trainControl(method = "cv", number = 10)
+
+#cv_cont <- train(avg_chip_seconds ~ avg_temp + ozone + sea_level_pressure + pm25,
+#                 data = train_data,
+#                 method = "lm",
+#                 trControl = train_control)
+
+#cv_bin <- train(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure_bin + pm25_bin,
+#                data = train_data,
+#                method = "lm",
+#                trControl = train_control)
+
+#cv_temp <- train(avg_chip_seconds ~ temp_bin + ozone + sea_level_pressure + pm25,
+#                 data = train_data,
+#                 method = "lm",
+#                 trControl = train_control)
+
+#cv_temp_ozone <- train(avg_chip_seconds ~ temp_bin + ozone_bin + sea_level_pressure + pm25,
+#                       data = train_data,
+#                       method = "lm",
+#                       trControl = train_control)
+
+#cv_airbin <- train(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25_bin,
+#                   data = train_data,
+#                   method = "lm",
+#                   trControl = train_control)
+
+#cv_ozone <- train(avg_chip_seconds ~ avg_temp + ozone_bin + sea_level_pressure + pm25,
+#                  data = train_data,
+#                  method = "lm",
+#                  trControl = train_control)
 ```
 
 
