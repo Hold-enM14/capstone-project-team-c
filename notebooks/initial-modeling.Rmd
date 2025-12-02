@@ -180,6 +180,56 @@ I am unable to get the code below to work, so I ran a couple basic lm()s above w
 
 
 
+```{r}
+# More Modeling (ZD)
+
+# build a function
+evaluate <- function(model, test_data) {
+  preds <- predict(model, newdata = test_data)
+  actual <- test_data$avg_chip_seconds
+  
+  rmse <- sqrt(mean((preds - actual)^2))
+  mae  <- mean(abs(preds - actual))
+  r2   <- cor(preds, actual)^2
+  
+  return(list(RMSE = rmse, MAE = mae, R2 = r2))
+}
+
+# Evaluate Model 1 with scaled PM2.5
+results_scaledPM25 <- evaluate(lm_initial_scaledPM25, test_data)
+
+# Evaluate Model 2 with PM2.5 bin
+results_PM25bin <- evaluate(lm_initial_PM25bin, test_data)
+```
+
+```{r}
+# compare results (ZD)
+model_compare <- data.frame(
+  Model = c("Continuous PM2.5", "PM2.5 Bin"),
+  RMSE = c(results_scaledPM25$RMSE, results_PM25bin$RMSE),
+  MAE  = c(results_scaledPM25$MAE,  results_PM25bin$MAE),
+  R2   = c(results_scaledPM25$R2,   results_PM25bin$R2)
+)
+
+knitr::kable(model_compare, digits = 4,
+             caption = "Comparison of Initial Models: Continuous vs Binned PM2.5")
+```
+
+```{r}
+# build residual plots (ZD)
+plot(lm_initial_PM25bin, which = 1)   # Residuals vs Fitted
+plot(lm_initial_PM25bin, which = 2)   # Q–Q plot
+```
+
+
+
+
+
+
+
+
+
+
 
 
 
