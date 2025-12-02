@@ -160,7 +160,23 @@ We can see that ozone was successfully removed from both train and test data.
 (I ENDED HERE... I made the pre-feat-data into a csv and added the scaling and adding bins above)
 
 
+```{r}
+#Initial Model (MH)
+lm_initial_scaledPM25 <- lm(avg_chip_seconds ~ marathon + gender + subgroup + supershoe + scaled_avg_temp + scaled_precipitation + scaled_dew_point + scaled_wind_speed + scaled_visibility + scaled_sea_level_pressure + scaled_co + scaled_pm25 + ozone_bin + scaled_no2 + scaled_temp_aqi_interaction + scaled_avg_temp_gender_interaction, data = train_data)
 
+
+summary(lm_initial_scaledPM25)
+plot(lm_initial_scaledPM25)
+
+lm_initial_PM25bin <- lm(avg_chip_seconds ~ marathon + gender + subgroup + supershoe + scaled_avg_temp + scaled_precipitation + scaled_dew_point + scaled_wind_speed + scaled_visibility + scaled_sea_level_pressure + scaled_co + pm25_bin + ozone_bin + scaled_no2 + scaled_temp_aqi_interaction + scaled_avg_temp_gender_interaction, data = train_data)
+
+
+summary(lm_initial_PM25bin)
+plot(lm_initial_PM25bin)
+
+```
+
+I am unable to get the code below to work, so I ran a couple basic lm()s above with the features listed out
 
 
 
