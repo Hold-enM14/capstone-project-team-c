@@ -17,8 +17,15 @@ library(combinat)
 
 # Importing the data (KB)
 ```{r}
-final_data <- read.csv(here("data", "pre_feat_data.csv"))
+main_data <- read.csv(here("data", "pre_feat_data.csv"))
 ```
+
+Make sure supershoe is a factor (KB)
+```{r}
+main_data$supershoe <- factor(main_data$supershoe, levels = c(0,1))
+str(main_data)
+```
+Now supershoe is a factor. 
 
 # Add our 90/10 training/test split (ZD)
 ```{r}
@@ -84,7 +91,7 @@ We made the factor levels:
 
 
 ```{r}
-str(test_data)
+str(train_data)
 ```
 
 
