@@ -154,7 +154,7 @@ str(train_data)
 str(test_data)
 ```
 
-We can see that ozone was successfully removed from both train and test data. 
+We can see that scaled ozone was successfully removed from both train and test data. 
 
 
 
