@@ -1,5 +1,5 @@
 ---
-title: "Model Eval and Interpretation"
+title: "Model Evaluation and Interpretation"
 author: "Team C"
 date: "2025-12-04"
 output: html_document
@@ -369,6 +369,7 @@ data.frame(
 
 
 - Initial attempt end
+
 
 
 
