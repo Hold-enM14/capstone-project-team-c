@@ -368,6 +368,27 @@ data.frame(
   Test_RMSE = rmse_best
 )
 ```
+```{r}
+#Overfitting testing option 2 (MH) - note: I don't think CV_RMSE is needed, I think we want to test on the final model "best_xgb"
+pred_train <- predict(best_xgb, dtrain)
+pred_test  <- predict(best_xgb, dtest)
+
+rmse_train <- rmse(train_data$avg_chip_seconds, pred_train)
+rmse_test  <- rmse(test_data$avg_chip_seconds, pred_test)
+
+c(Train_RMSE = rmse_train, Test_RMSE = rmse_test)
+
+#Visually inspect for overfitting with learning curves plotting the nround
+cv_results <- as.data.frame(xgb_cv$evaluation_log)
+
+ggplot(cv_results, aes(x = iter)) +
+  geom_line(aes(y = train_rmse_mean, color = "Train")) +
+  geom_line(aes(y = test_rmse_mean, color = "Validation")) +
+  labs(y = "RMSE", x = "nround", color = "Dataset")
+
+```
+
+MH: The learning curve and the compariosn of RMSE on test and training data with the best_xgb model suggests overfitting of data.
 
 
 - Initial attempt end
@@ -524,7 +545,7 @@ best_xgb_raw <- xgb.train(
 )
 ```
 
-Next we will evaluate tge tuned model on the test set (ZD, KB)
+Next we will evaluate the tuned model on the test set (ZD, KB)
 ```{r}
 # Evaluate tuned model
 pred_best_raw <- predict(best_xgb_raw, dtest_raw)
@@ -535,6 +556,7 @@ mae_best_raw  <- mae(test_data_raw$avg_chip_seconds, pred_best_raw)
 c(RMSE = rmse_best_raw, MAE = mae_best_raw)
 
 ```
+
 We can see the same trend on the test set (where the feature engineered and binned GXBoost showed RMSE: 128.51255 and MAE: 98.61524). This XGBoost model achieves lower RMSE and MAE. This suggests that XGBoost is effectively capturing nonlinearities and interactions on its own, reducing the need for us to manually create them.
 
 Find Variable importance amongst XGBoost model, so we can see how it compares to the GXBoost that incudes feature enginnering and binning (ZD, KB)
@@ -559,7 +581,29 @@ data.frame(
   CV_RMSE    = cv_rmse_raw,
   Test_RMSE  = rmse_best_raw
 )
+
 ```
+
+```{r}
+#Overfitting testing option 2 (MH) - Testing overfitting on final model, calculating RMSE. The result/interpretation is effectively the same 
+pred_train <- predict(best_xgb_raw, dtrain_raw)
+pred_test  <- predict(best_xgb_raw, dtest_raw)
+
+rmse_train <- rmse(train_data_raw$avg_chip_seconds, pred_train)
+rmse_test  <- rmse(test_data_raw$avg_chip_seconds, pred_test)
+
+c(Train_RMSE = rmse_train, Test_RMSE = rmse_test)
+
+#Visually inspect for overfitting with learning curves plotting RMSE against the nround
+cv_results <- as.data.frame(xgb_cv_raw$evaluation_log)
+
+ggplot(cv_results, aes(x = iter)) +
+  geom_line(aes(y = train_rmse_mean, color = "Train")) +
+  geom_line(aes(y = test_rmse_mean, color = "Validation")) +
+  labs(y = "RMSE", x = "nrounds", color = "Dataset")
+```
+
+
 We can see that the model is overfitting: There is a huge gap between Train_RMSE (15.07) and CV_RMSE (159.69) which means the model is overfitting the training data.
 
 
