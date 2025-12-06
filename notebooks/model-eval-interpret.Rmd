@@ -161,13 +161,6 @@ str(test_data)
 We can see that scaled ozone was successfully removed from both train and test data. 
 
 
-
-
-
-
-(I ENDED HERE... I made the pre-feat-data into a csv and added the scaling and adding bins above)
-
-
 ```{r}
 #Initial Model (MH)
 lm_initial_scaledPM25 <- lm(avg_chip_seconds ~ marathon + gender + subgroup + supershoe + scaled_avg_temp + scaled_precipitation + scaled_dew_point + scaled_wind_speed + scaled_visibility + scaled_sea_level_pressure + scaled_co + scaled_pm25 + ozone_bin + scaled_no2 + scaled_temp_aqi_interaction + scaled_avg_temp_gender_interaction, data = train_data)
@@ -258,15 +251,8 @@ plot(lm_initial_PM25bin, which = 2)   # Q–Q plot
 ```
 
 
-
-
-
-
-
-
-
-Start of Model Evaluation and Interpretation section:
-(Attempt)
+# Start of Model Evaluation and Interpretation section:
+Attempt for XGboost model containing the engineered features, binned features, and scaled features: (ZD)
 
 ```{r}
 # Remove identifiers before creating model matrix
@@ -286,6 +272,7 @@ dtrain <- xgb.DMatrix(data = train_matrix, label = train_data$avg_chip_seconds)
 dtest  <- xgb.DMatrix(data = test_matrix,  label = test_data$avg_chip_seconds)
 ```
 
+(ZD)
 ```{r}
 # Create an untuned XGBoost model
 xgb_base <- xgboost(
@@ -303,51 +290,93 @@ mae_xgb  <- mae(test_data$avg_chip_seconds, pred_xgb)
 c(RMSE = rmse_xgb, MAE = mae_xgb)
 ```
 
+Introduce cross validation hyperparameter tuning (ZD, KB)
 ```{r}
+# Zack's original attempt
 # Introduce cross validation hyperparameter tuning
+#xgb_cv <- xgb.cv(
+#  data = dtrain,
+#  nrounds = 2000,
+#  nfold = 5,
+#  objective = "reg:squarederror",
+#  eta = 0.01,
+#  max_depth = 4,
+#  subsample = 0.8,
+#  colsample_bytree = 0.8,
+#  early_stopping_rounds = 50,
+#  verbose = 0 # mute iterations
+#)
+
+#xgb_cv$best_iteration
+
+# Krisha's attempt tuned for overfitting
+set.seed(123)  # for reproducibility
+
 xgb_cv <- xgb.cv(
   data = dtrain,
-  nrounds = 2000,
+  nrounds = 3000,           # Increased to 3000 because 
+  eta = 0.1,                # Increased to 0.1 because a higher eta helps overfitting when depth is shallow.
+  max_depth = 2,            # Lowered to 2 because shallow trees reduce model complexity and prevent overfitting.
+  min_child_weight = 10,    # Added to help model focus on stronger patterns instead of noise.
   nfold = 5,
   objective = "reg:squarederror",
-  eta = 0.01,
-  max_depth = 4,
-  subsample = 0.8,
-  colsample_bytree = 0.8,
+  subsample = 0.8,          
+  colsample_bytree = 0.7,   # Lowered to 0.7 to reduce the number of features considered per tree,reducing reliance on any single predictor.
+  gamma = 0.1,              # Added to require a minimum loss reduction before splitting to limit noisy patterns.
+  lambda = 1,               # L2 regularization (ridge penalty) stabilizes coefficients and reduces overfitting.
+  alpha = 1,                # L1 regularization (lasso penalty) helps by shrinking weak predictors’
   early_stopping_rounds = 50,
-  verbose = 0 # mute iterations
+  verbose = 0
 )
 
 xgb_cv$best_iteration
 ```
+We can see that the XGBoost model performed best at 2182 trees according to cross-validation. 
 
+Training the tunned model: (ZD, KB)
 ```{r}
 # Train tuned model
 params <- list(
   objective = "reg:squarederror",
-  eta = 0.01,
-  max_depth = 4,
+  eta = 0.1,
+  max_depth = 2,
   subsample = 0.8,
-  colsample_bytree = 0.8
+  colsample_bytree = 0.7, 
+  gamma = 0.1, # 
+  lambda = 1,
+  alpha = 1
+  
 )
 # Find best # of trees from cv
 best_xgb <- xgb.train(
   params = params,
   data = dtrain,
-  nrounds = xgb_cv$best_iteration
+  nrounds = xgb_cv$best_iteration #2182
 )
 ```
 
 
+Next we will evaluate the tuned model on the test set (ZD, KB)
 ```{r}
-# Evaluate tuned model
-pred_best <- predict(best_xgb, dtest)
+#Calculating R2
+rss <- sum((test_data$avg_chip_seconds - pred_xgb)^2)
+tss <- sum((test_data$avg_chip_seconds - mean(test_data$avg_chip_seconds))^2)
+r2_xgb <- 1 - rss/tss
 
-rmse_best <- rmse(test_data$avg_chip_seconds, pred_best)
-mae_best  <- mae(test_data$avg_chip_seconds, pred_best)
+# XGBoost model comparison (ZD, KB)
+model_compare <- data.frame(
+  Model = c("XGBoost (with engineering)"),
+  RMSE = c(rmse_xgb),
+  MAE  = c(mae_xgb),
+  R2   = c(r2_xgb)
+)
 
-c(RMSE = rmse_best, MAE = mae_best)
+knitr::kable(model_compare, digits = 4,
+             caption = "XGBoost (with engineering)")
 ```
+
+We can see that the RMSE and MAE are alot lower comapred to our baseline models, where Continuous PM2.5	RMSE :357.0011	and MAE: 267.278, and PM2.5 Bin	RMSE: 358.0687	and MAE:274.0892. 
+
 
 ```{r}
 # Variable importance amongst XGBoosted model
@@ -365,38 +394,9 @@ train_rmse <- min(xgb_cv$evaluation_log$train_rmse_mean)
 data.frame(
   Train_RMSE = train_rmse,
   CV_RMSE = cv_rmse,
-  Test_RMSE = rmse_best
+  Test_RMSE = rmse_xgb
 )
 ```
-```{r}
-#Overfitting testing option 2 (MH) - note: I don't think CV_RMSE is needed, I think we want to test on the final model "best_xgb"
-pred_train <- predict(best_xgb, dtrain)
-pred_test  <- predict(best_xgb, dtest)
-
-rmse_train <- rmse(train_data$avg_chip_seconds, pred_train)
-rmse_test  <- rmse(test_data$avg_chip_seconds, pred_test)
-
-c(Train_RMSE = rmse_train, Test_RMSE = rmse_test)
-
-#Visually inspect for overfitting with learning curves plotting the nround
-cv_results <- as.data.frame(xgb_cv$evaluation_log)
-
-ggplot(cv_results, aes(x = iter)) +
-  geom_line(aes(y = train_rmse_mean, color = "Train")) +
-  geom_line(aes(y = test_rmse_mean, color = "Validation")) +
-  labs(y = "RMSE", x = "nround", color = "Dataset")
-
-```
-
-MH: The learning curve and the compariosn of RMSE on test and training data with the best_xgb model suggests overfitting of data.
-
-
-- Initial attempt end
-
-
-
-
-
 
 # XGBoost model with no feature engineering or binning: (KB)
 Tree-based models naturally capture nonlinearities and interactions without requiring us to create them. This could help us validate whether the interactions we hand-selected align with the patterns the model finds.
@@ -508,56 +508,68 @@ set.seed(123)  # for reproducibility
 
 xgb_cv_raw <- xgb.cv(
   data = dtrain_raw,
-  nrounds = 5000,      # Reduced nrounds from 2000 to speed up training while still allowing enough trees
-  eta = 0.05,          # Increased eta from 0.01 to allow faster learning and reduce the number of trees needed
+  nrounds = 3000,      
+  eta = 0.1,                # Increased to 0.1 because a higher eta helps overfitting when depth is shallow.
+  max_depth = 2,            # Lowered to 2 because shallow trees reduce model complexity and prevent overfitting.
+  min_child_weight = 10,    # Added to help model focus on stronger patterns instead of noise.
   nfold = 5,
   objective = "reg:squarederror",
-  max_depth = 4,
-  subsample = 0.8,
-  colsample_bytree = 0.8,
+  subsample = 0.8,          
+  colsample_bytree = 0.7,   # Lowered to 0.7 to reduce the number of features considered per tree,reducing reliance on any single predictor.
+  gamma = 0.1,              # Added to require a minimum loss reduction before splitting to limit noisy patterns.
+  lambda = 1,               # L2 regularization (ridge penalty) stabilizes coefficients and reduces overfitting.
+  alpha = 1,                # L1 regularization (lasso penalty) helps by shrinking weak predictors’
   early_stopping_rounds = 50,
-  verbose = 0, # mute iterations
-  seed = 123  # fixes XGBoost internal randomness
+  verbose = 0
 )
 
 xgb_cv_raw$best_iteration
 ```
-We can see that the XGBoost model performed best at 4124 trees according to cross-validation. 
-Adding more trees didn’t improve validation error.
+We can see that the XGBoost model performed best at 1353 trees according to cross-validation. 
 
 Training the tunned model: (ZD, KB)
 ```{r}
 # Train tuned model
 params_raw <- list(
   objective = "reg:squarederror",
-  eta = 0.05,          # matched the eta used in CV
-  max_depth = 4,
+  eta = 0.1,          # matched the eta used in CV
+  max_depth = 2,
   subsample = 0.8,
-  colsample_bytree = 0.8
+  colsample_bytree = 0.7,
+  gamma = 0.1,
+  lambda = 1,
+  alpha = 1
 )
 
 # Find best # of trees from cv
 best_xgb_raw <- xgb.train(
   params = params_raw,
   data = dtrain_raw,
-  nrounds = xgb_cv_raw$best_iteration,  # 4124 
+  nrounds = xgb_cv_raw$best_iteration,  #  1353
   verbose = 0
 )
 ```
 
 Next we will evaluate the tuned model on the test set (ZD, KB)
 ```{r}
-# Evaluate tuned model
-pred_best_raw <- predict(best_xgb_raw, dtest_raw)
+#Calculating R2
+rss <- sum((test_data_raw$avg_chip_seconds - pred_xgb_raw)^2)
+tss <- sum((test_data_raw$avg_chip_seconds - mean(test_data_raw$avg_chip_seconds))^2)
+r2_xgb_raw <- 1 - rss/tss
 
-rmse_best_raw <- rmse(test_data_raw$avg_chip_seconds, pred_best_raw)
-mae_best_raw  <- mae(test_data_raw$avg_chip_seconds, pred_best_raw)
+# XGBoost model comparison (ZD, KB)
+model_compare <- data.frame(
+  Model = c("XGBoost (raw features)"),
+  RMSE = c(rmse_xgb_raw),
+  MAE  = c(mae_xgb_raw),
+  R2   = c(r2_xgb_raw)
+)
 
-c(RMSE = rmse_best_raw, MAE = mae_best_raw)
-
+knitr::kable(model_compare, digits = 4,
+             caption = " XGBoost (raw features)")
 ```
 
-We can see the same trend on the test set (where the feature engineered and binned GXBoost showed RMSE: 128.51255 and MAE: 98.61524). This XGBoost model achieves lower RMSE and MAE. This suggests that XGBoost is effectively capturing nonlinearities and interactions on its own, reducing the need for us to manually create them.
+We can see the same trend on the test set (where GXBoost with feature engineering showed RMSE: 131.9877 and MAE: 101.7843). This XGBoost model achieves lower RMSE and MAE. This suggests that XGBoost is effectively capturing nonlinearities and interactions on its own, reducing the need for us to manually create them.
 
 Find Variable importance amongst XGBoost model, so we can see how it compares to the GXBoost that incudes feature enginnering and binning (ZD, KB)
 ```{r}
@@ -567,7 +579,7 @@ print(importance_raw)
 
 xgb.plot.importance(importance_raw)
 ```
-We can see that subgroupslow and subgroupelite are the features the model relied on most to reduce prediction error. Variables like wind_speed or low_temp are less influential but still contribute a little. Features with extremely low Gain and Frequency, like main_pollutantPM10, are barely used by the model. 
+We can see that subgroupslow and subgroupelite are the features the model relied on most to reduce prediction error. Variables like wind_speed or low_temp are less influential but still contribute a little. Features with extremely low Frequency are main_pollutantPM2.5, which are barely used by the model. 
 
 
 Check for overfitting (ZD, KB)
@@ -579,32 +591,38 @@ train_rmse_raw <- min(xgb_cv_raw$evaluation_log$train_rmse_mean)
 data.frame(
   Train_RMSE = train_rmse_raw,
   CV_RMSE    = cv_rmse_raw,
-  Test_RMSE  = rmse_best_raw
+  Test_RMSE  = rmse_xgb_raw
 )
 
 ```
 
+Originally we could see that the model was overfitting: There was a huge gap between Train_RMSE (15.07) and CV_RMSE (159.69) which means the model is overfitting the training data.
+
+We can now see that the model is no longer overfitting. 
+
+Comparing all our models: (ZD, KB)
 ```{r}
-#Overfitting testing option 2 (MH) - Testing overfitting on final model, calculating RMSE. The result/interpretation is effectively the same 
-pred_train <- predict(best_xgb_raw, dtrain_raw)
-pred_test  <- predict(best_xgb_raw, dtest_raw)
+model_compare_train <- data.frame(
+  Model = c("Continuous PM2.5", "PM2.5 Bin","XGBoost (with engineering)","XGBoost (raw features)"),
+  RMSE  = c(results_scaledPM25$RMSE,
+            results_PM25bin$RMSE, 
+            rmse_xgb,
+            rmse_xgb_raw),
+  MAE   = c(results_scaledPM25$MAE,
+            results_PM25bin$MAE,
+            mae_xgb,
+            mae_xgb_raw),
+  R2    = c(results_scaledPM25$R2,
+            results_PM25bin$R2,
+            r2_xgb, 
+            r2_xgb_raw)
+)
 
-rmse_train <- rmse(train_data_raw$avg_chip_seconds, pred_train)
-rmse_test  <- rmse(test_data_raw$avg_chip_seconds, pred_test)
+# Display nicely formatted table
+knitr::kable(model_compare_train, digits = 4,
+             caption = "Comparison of All Models")
 
-c(Train_RMSE = rmse_train, Test_RMSE = rmse_test)
-
-#Visually inspect for overfitting with learning curves plotting RMSE against the nround
-cv_results <- as.data.frame(xgb_cv_raw$evaluation_log)
-
-ggplot(cv_results, aes(x = iter)) +
-  geom_line(aes(y = train_rmse_mean, color = "Train")) +
-  geom_line(aes(y = test_rmse_mean, color = "Validation")) +
-  labs(y = "RMSE", x = "nrounds", color = "Dataset")
 ```
-
-
-We can see that the model is overfitting: There is a huge gap between Train_RMSE (15.07) and CV_RMSE (159.69) which means the model is overfitting the training data.
 
 
 
@@ -754,4 +772,53 @@ knitr::kable(model_compare, digits = 4,
 Scaling makes no difference to the model
 
 
-#Next:Forward Backward Stepwise Selection
+#Next:Forward Backward Stepwise Selection (not for XGboost but for LM?)
+
+
+
+
+
+# Code Dictionary
+```Code we might need but didnt use```
+
+```{r}
+#Overfitting testing option 2 (MH) - note: I don't think CV_RMSE is needed, I think we want to test on the final model "best_xgb"
+pred_train <- predict(best_xgb, dtrain)
+pred_test  <- predict(best_xgb, dtest)
+
+rmse_train <- rmse(train_data$avg_chip_seconds, pred_train)
+rmse_test  <- rmse(test_data$avg_chip_seconds, pred_test)
+
+c(Train_RMSE = rmse_train, Test_RMSE = rmse_test)
+
+#Visually inspect for overfitting with learning curves plotting the nround
+cv_results <- as.data.frame(xgb_cv$evaluation_log)
+
+ggplot(cv_results, aes(x = iter)) +
+  geom_line(aes(y = train_rmse_mean, color = "Train")) +
+  geom_line(aes(y = test_rmse_mean, color = "Validation")) +
+  labs(y = "RMSE", x = "nround", color = "Dataset")
+
+```
+
+MH: The learning curve and the compariosn of RMSE on test and training data with the best_xgb model suggests overfitting of data.
+
+
+```{r}
+#Overfitting testing option 2 (MH) - Testing overfitting on final model, calculating RMSE. The result/interpretation is effectively the same 
+pred_train <- predict(best_xgb_raw, dtrain_raw)
+pred_test  <- predict(best_xgb_raw, dtest_raw)
+
+rmse_train <- rmse(train_data_raw$avg_chip_seconds, pred_train)
+rmse_test  <- rmse(test_data_raw$avg_chip_seconds, pred_test)
+
+c(Train_RMSE = rmse_train, Test_RMSE = rmse_test)
+
+#Visually inspect for overfitting with learning curves plotting RMSE against the nround
+cv_results <- as.data.frame(xgb_cv_raw$evaluation_log)
+
+ggplot(cv_results, aes(x = iter)) +
+  geom_line(aes(y = train_rmse_mean, color = "Train")) +
+  geom_line(aes(y = test_rmse_mean, color = "Validation")) +
+  labs(y = "RMSE", x = "nrounds", color = "Dataset")
+```
