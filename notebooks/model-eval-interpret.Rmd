@@ -347,31 +347,44 @@ We can see that the model is strongly overfitting because the train error (73) i
 ADDING HERE (KB)
 
 
-Introduce cross validation hyperparameter tuning by first running a tuning loop (KB)
+# Introduce cross validation hyperparameter tuning by first running a tuning loop (KB)
+
+To make sure our XGBoost model is as accurate and reliable as possible, we built a hyperparameter-tuning loop. We can use this instead of guessing which settings would give us the best performance. This loop is able to automatically test several combinations using 5-fold cross-validation. It then checks how well the model predicts on unseen data and records the best RMSE and number of boosting rounds. Then it selects the combination with the lowest cross-validated error. The tuning loop is a balanced model that is flexible enough to capture real patterns and its regularized enough to avoid memorizing all the noise.
 ```{r}
 params_grid <- expand.grid(
-  max_depth = c(4, 6),
-  min_child_weight = c(1, 3),
-  subsample = c(0.8),
-  colsample_bytree = c(0.8, 1.0),
+  max_depth = c(2, 3, 4),
+  min_child_weight = c(3, 5, 10),
+  subsample = c(0.7, 0.8),
+  colsample_bytree = c(0.6, 0.8),
   eta = c(0.05, 0.1),
-  gamma = c(0)
+  gamma = c(0, 0.1),
+  lambda = c(0.5, 1),
+  alpha = c(0, 1)
 )
 
 results <- list()
 
-for(i in 1:nrow(params_grid)) {
-  params <- as.list(params_grid[i, ])
-  params$objective <- "reg:squarederror"
-  params$nthread <- parallel::detectCores()
+for (i in 1:nrow(params_grid)) {
+  
+  params <- list(
+    objective = "reg:squarederror",
+    max_depth = params_grid$max_depth[i],
+    min_child_weight = params_grid$min_child_weight[i],
+    subsample = params_grid$subsample[i],
+    colsample_bytree = params_grid$colsample_bytree[i],
+    eta = params_grid$eta[i],
+    gamma = params_grid$gamma[i],
+    lambda = params_grid$lambda[i],
+    alpha = params_grid$alpha[i]
+  )
   
   cv <- xgb.cv(
     params = params,
     data = dtrain,
-    nrounds = 1000,
+    nrounds = 1500,
     nfold = 5,
-    early_stopping_rounds = 20,
-    verbose = FALSE
+    early_stopping_rounds = 30,
+    verbose = 0
   )
   
   results[[i]] <- list(
@@ -380,7 +393,9 @@ for(i in 1:nrow(params_grid)) {
     best_iter = cv$best_iteration
   )
 }
+
 ```
+
 
 Next extract the best hyperparameters (KB)
 ```{r}
@@ -447,9 +462,16 @@ model_eval <- data.frame(
 knitr::kable(model_eval, digits = 4, caption = "XGBoost Model Best Hyperparameters - Overfitting Check (Train MAE & R2 included)")
 
 ```
-The tuned XGBoost model reduces overfitting while maintaining high predictive accuracy, achieving strong performance on both the cross-validation and test sets. It provides a reliable and generalizable solution for this dataset.
 
-Check for varaibel importance (ZD, KB)
+We can see that the model is not overfitting badly, only a reasonable amount (Train RMSE = 52, Test RMSE = 133). This might be due to the Train set having more folds and more data. But, the gap is much smaller than before tuning (Train RMSE: ~76, Test RMSE: ~192). Overall, this is a big improvement in generalization.
+
+We can also see that cross validation error is almost the same as test error which is great news (CV RMSE = 152.7, Test RMSE = 133.2). This means that we have a healthy model, our 5-fold CV is reliable, the model generalizes well, and we are not leaking any information.
+
+In addition, both the R2 show that the models fit extremely well (Train R² ≈ 0.9998 and Test R² = 0.9986). On the training data, it is so close to perfect mostly likley due to our subgroup categories explaining most of the variability. So, the high R2 most likey does not mean overfitting here.
+
+Overall, the tuned model clearly outperforms the original baseline model (Baseline Test RMSE ≈ 192, Tuned Test RMSE ≈ 133). That is around a 30% improvement in accuracy, which is pretty large. This means that our tuning loop definitely worked. 
+
+Check for variable importance (ZD, KB)
 ```{r}
 # Variable importance amongst final XGBoosted model
 importance <- xgb.importance(model = xgb_model)
@@ -463,7 +485,7 @@ ENDED HERE(KB)
 
 
 
-
+Probaly dont need this since I was just guessing the parameters.....
 ```{r}
 # Krisha's attempt tuned for overfitting
 set.seed(123)  # for reproducibility
@@ -656,9 +678,8 @@ train_data_raw <- as.data.frame(main_data[train_index, ]) # making sure they are
 test_data_raw  <- as.data.frame(main_data[-train_index, ])
 ```
 
-(ZD, KB)
+Remove identifiers before creating model matrix (ZD, KB)
 ```{r}
-# Remove identifiers before creating model matrix
 # Convert dataset to numeric-only matrix
 train_matrix_raw <- model.matrix(
   avg_chip_seconds ~ .,
@@ -748,41 +769,55 @@ We can see that the model is strongly overfitting because the train error (84) i
 
 ADDED HERE(KB)
 
+# Introduce cross validation hyperparameter tuning by first running a tuning loop on the raw features as done previously (KB)
+
+To make sure our XGBoost raw features model is as accurate and reliable as possible, we built a hyperparameter-tuning loop. We can use this instead of guessing which settings would give us the best performance. This loop is able to automatically test several combinations using 5-fold cross-validation. It then checks how well the model predicts on unseen data and records the best RMSE and number of boosting rounds. Then it selects the combination with the lowest cross-validated error. The tuning loop is a balanced model that is flexible enough to capture real patterns and its regularized enough to avoid memorizing all the noise.
 
 
-Introduce cross validation hyperparameter tuning by first running a tuning loop (KB)
 ```{r}
-params_grid <- expand.grid(
-  max_depth = c(4, 6),
-  min_child_weight = c(1, 3),
-  subsample = c(0.8),
-  colsample_bytree = c(0.8, 1.0),
+params_grid_raw <- expand.grid(
+  max_depth = c(2, 3, 4),
+  min_child_weight = c(3, 5, 10),
+  subsample = c(0.7, 0.8),
+  colsample_bytree = c(0.6, 0.8),
   eta = c(0.05, 0.1),
-  gamma = c(0)
+  gamma = c(0, 0.1),
+  lambda = c(0.5, 1),
+  alpha = c(0, 1)
 )
 
 results_raw <- list()
 
-for(i in 1:nrow(params_grid)) {
-  params <- as.list(params_grid[i, ])
-  params$objective <- "reg:squarederror"
-  params$nthread <- parallel::detectCores()
+for (i in 1:nrow(params_grid_raw)) {
   
-  cv <- xgb.cv(
+  params <- list(
+    objective = "reg:squarederror",
+    max_depth = params_grid_raw$max_depth[i],
+    min_child_weight = params_grid_raw$min_child_weight[i],
+    subsample = params_grid_raw$subsample[i],
+    colsample_bytree = params_grid_raw$colsample_bytree[i],
+    eta = params_grid_raw$eta[i],
+    gamma = params_grid_raw$gamma[i],
+    lambda = params_grid_raw$lambda[i],
+    alpha = params_grid_raw$alpha[i]
+  )
+  
+  cv_raw <- xgb.cv(
     params = params,
-    data = dtrain_raw,
-    nrounds = 1000,
+    data = dtrain_raw,      # <<< RAW FEATURE MATRIX HERE
+    nrounds = 1500,
     nfold = 5,
-    early_stopping_rounds = 20,
-    verbose = FALSE
+    early_stopping_rounds = 30,
+    verbose = 0
   )
   
   results_raw[[i]] <- list(
     params = params,
-    best_rmse = min(cv$evaluation_log$test_rmse_mean),
-    best_iter = cv$best_iteration
+    best_rmse = min(cv_raw$evaluation_log$test_rmse_mean),
+    best_iter = cv_raw$best_iteration
   )
 }
+
 ```
 
 Next extract the best hyperparameters (KB)
@@ -801,8 +836,10 @@ best_nrounds_raw
 ```
 
 
-Running XGBoost model with feauters with the best hyperparameters (KB)
+Running XGBoost model with raw features with the best hyperparameters (KB)
 ```{r}
+set.seed(42)
+
 # Train final XGBoost model
 xgb_raw_model <- xgboost(
   data = dtrain_raw,
@@ -848,10 +885,17 @@ model_eval <- data.frame(
 )
 
 # Display table
-knitr::kable(model_eval, digits = 4, caption = "XGBoost Model Best Hyperparameters - Overfitting Check (Train MAE & R2 included)")
+knitr::kable(model_eval, digits = 4, caption = "XGBoost Raw-Feature Model Best Hyperparameters - Overfitting Check (Train MAE & R2 included)")
 
 ```
-The tuned XGBoost modelis better because it has much lower training, CV, and test errors (RMSE and MAE) and higher R2 values, indicating it fits the data well while still generalizing effectively to unseen data.
+We can see that the model is not overfitting severely, only to a reasonable extent (Train RMSE ≈ 44.9, Test RMSE ≈ 150.6). The gap between train and test performance is expected and much smaller than in the earlier model.This indicates that regularization and tuning have helped reduce the degree of overfitting.
+
+We also can see that the cross validation error is very similar to the test error (CV RMSE ≈ 164.7, Test RMSE ≈ 150.6). This is good because it means that the model is stable across folds, the cross-validation process is reliable, and the model is generalizing consistently. This also means that there is no obvious data leakage.
+
+In addition, both R2 scores show that the model fits the data extremely well (Train R² ≈ 0.9998, Test R² ≈ 0.9982). The almost perfect R2 is likely due to the subgroup structure, rather than overfitting.
+
+Overall, the tuned model clearly outperforms the baseline model. The baseline had a Test RMSE of about 161.6, whereas the tuned model achieves 150.6, which is a meaningful improvement in accuracy. This represents roughly a 7% reduction in test error, showing that the tuning loop successfully improved generalization and stability.
+
 
 Check for varaibel importance (ZD, KB)
 ```{r}
