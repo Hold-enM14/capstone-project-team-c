@@ -30,7 +30,7 @@ library(combinat)
 library(glmnet)
 library(xgboost)
 library(Metrics)
-#library(SHAPforxgboost)
+library(SHAPforxgboost)
 
 ```
 
@@ -90,7 +90,6 @@ chicago_clean <- chicago %>%
     chip_time = Finish.Time
   )
 ```
-
 Standardize the raw weather data; format the variables names to make them clean (KB)
 ```{r}
 weather_clean <- weather %>%
@@ -506,7 +505,7 @@ ggplot(final_data, aes(x = aqi, y = avg_chip_seconds / 3600, color = marathon)) 
 ```
 
 
-## Figure 4: Correlation Matrix (UNKNOWN)
+## Figure 4: Correlation Matrix (MH)
 ```{r}
 # select only the numeric variables
 numeric_vars <- final_data %>%
@@ -615,13 +614,13 @@ We cans see that over time, most finishing times become faster. We can also see 
 
 ## Figure 8.  (MH)
 ```{r}
-#Add 'Overall' graph, making df 'final_data2' for purpose of figure 5 and  6
+#Add 'Overall' graph, making df 'final_data2' for purpose of figure 8 and  9
 final_data2 <- final_data %>% mutate(subgroup = tolower(as.character(subgroup))) %>% bind_rows(final_data %>% 
 mutate(subgroup = "overall")) %>%
   mutate(subgroup = factor(subgroup,levels = c("elite", "competitive", "average", "recreational", "slow", "overall")))
 final_data2$year <- as.numeric(as.character(final_data2$year))
 
-#Figure 5: Visibility and Finishing time
+#Visibility and Finishing time
 ggplot(final_data2, aes(x = visibility, y = avg_chip_seconds / 3600, color = marathon)) +
   geom_point(alpha = 0.6) +
   geom_smooth(aes(linetype=gender),method = "lm", se = FALSE, color = "black") +
@@ -632,7 +631,7 @@ ggplot(final_data2, aes(x = visibility, y = avg_chip_seconds / 3600, color = mar
   ) +
   theme(legend.position = "right")
 ```
-
+A decrease in visibility appears to slow down runners across all subgroups.
 
 ## Figure 9: (MH)
 ```{r}
@@ -650,341 +649,9 @@ ggplot(final_data2, aes(x = year, y = avg_chip_seconds, color = marathon)) +
 
 
 ```
+With the introduction of supershoes around 2018 (red vertical dashed line), we expect to see in improvement in finishing time. This is true for all subgroups except for slow runners. The slow runners make up the largest number of runners in each marathon. The increase could be due to the larger number of runners in the subgroup, it could also be due to an increase in charity bibs at races - where runners do not have to explicitly qualify with a qualifying time in order to run.
 
-
-## Figure 10: Summary Tables and Box and whisker plots (**need to organize this**) (MH)
-```{r}
-#Boston
-boston <- final_data %>% filter(marathon=="Boston")
-
-#Summarize
-summary_long <- boston %>%
-  group_by(year, gender) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
-    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
-
-#Pivot wider — ensure one row per year
-summary_wide <- summary_long %>%
-  pivot_wider(id_cols=year,                   
-    names_from=gender,
-    values_from=c(N, mean_sd, min_max),
-    names_glue="{gender}_{.value}") %>% arrange(year)
-
-#Combine into one column per gender for GT
-summary_combined <- summary_wide %>%
-  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
-         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
-  select(year, Female, Male)
-
-#GT table
-summary_combined %>%
-  gt(rowname_col = "year") %>%
-  cols_label(Female = "Female",
-             Male   = "Male") %>%
-  fmt_markdown(columns = c(Female, Male)) %>%
-  tab_options(
-    data_row.padding = px(3),
-    table.font.size = px(14))
-
-
-
-#Berlin
-berlin<- final_data  %>% filter(marathon=="Berlin")
-#Summarize
-summary_long <- berlin %>%
-  group_by(year, gender) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
-    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
-
-#Pivot wider — ensure one row per year
-summary_wide <- summary_long %>%
-  pivot_wider(id_cols=year,                   
-    names_from=gender,
-    values_from=c(N, mean_sd, min_max),
-    names_glue="{gender}_{.value}") %>% arrange(year)
-
-#Combine into one column per gender for GT
-summary_combined <- summary_wide %>%
-  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
-         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
-  select(year, Female, Male)
-
-#GT table
-summary_combined %>%
-  gt(rowname_col = "year") %>%
-  cols_label(Female = "Female",
-             Male   = "Male") %>%
-  fmt_markdown(columns = c(Female, Male)) %>%
-  tab_options(
-    data_row.padding = px(3),
-    table.font.size = px(14))
-
-
-#Chicago
-chicago<- final_data  %>% filter(marathon=="Chicago")
-#Summarize
-summary_long <- chicago %>%
-  group_by(year, gender) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
-    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
-
-#Pivot wider — ensure one row per year
-summary_wide <- summary_long %>%
-  pivot_wider(id_cols=year,                   
-    names_from=gender,
-    values_from=c(N, mean_sd, min_max),
-    names_glue="{gender}_{.value}") %>% arrange(year)
-
-#Combine into one column per gender for GT
-summary_combined <- summary_wide %>%
-  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
-         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
-  select(year, Female, Male)
-
-#GT table
-summary_combined %>%
-  gt(rowname_col = "year") %>%
-  cols_label(Female = "Female",
-             Male   = "Male") %>%
-  fmt_markdown(columns = c(Female, Male)) %>%
-  tab_options(
-    data_row.padding = px(3),
-    table.font.size = px(14))
-
-#NYC
-NYC<- final_data %>% filter(marathon=="NYC")
-#Summarize
-summary_long <- NYC %>%
-  group_by(year, gender) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
-    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
-
-#Pivot wider — ensure one row per year
-summary_wide <- summary_long %>%
-  pivot_wider(id_cols=year,                   
-    names_from=gender,
-    values_from=c(N, mean_sd, min_max),
-    names_glue="{gender}_{.value}") %>% arrange(year)
-
-#Combine into one column per gender for GT
-summary_combined <- summary_wide %>%
-  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
-         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
-  select(year, Female, Male)
-
-#GT table
-summary_combined %>%
-  gt(rowname_col = "year") %>%
-  cols_label(Female = "Female",
-             Male   = "Male") %>%
-  fmt_markdown(columns = c(Female, Male)) %>%
-  tab_options(
-    data_row.padding = px(3),
-    table.font.size = px(14))
-
-
-###############ALL to be merged manually
-
-
-#Boston
-boston<- final_data %>% filter(marathon=="Boston")
-summary_all <- boston %>%
-  group_by(year) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(
-    combined=paste0(
-      "N = ", N, "<br>",
-      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
-      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
-  select(year, combined)
-summary_all %>%
-  gt(rowname_col = "year") %>%
-  cols_label(combined="All Runners") %>%
-  fmt_markdown(columns="combined") %>%
-  tab_options(data_row.padding = px(3),table.font.size = px(14))
-
-
-
-
-#Berlin
-berlin<- final_data %>% filter(marathon=="Berlin")
-summary_all <- berlin %>%
-  group_by(year) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(
-    combined=paste0(
-      "N = ", N, "<br>",
-      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
-      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
-  select(year, combined)
-summary_all %>%
-  gt(rowname_col = "year") %>%
-  cols_label(combined="All Runners") %>%
-  fmt_markdown(columns="combined") %>%
-  tab_options(data_row.padding = px(3),table.font.size = px(14))
-
-
-#Chicago
-chicago<- final_data %>% filter(marathon=="Chicago")
-summary_all <- chicago %>%
-  group_by(year) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(
-    combined=paste0(
-      "N = ", N, "<br>",
-      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
-      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
-  select(year, combined)
-summary_all %>%
-  gt(rowname_col = "year") %>%
-  cols_label(combined="All Runners") %>%
-  fmt_markdown(columns="combined") %>%
-  tab_options(data_row.padding = px(3),table.font.size = px(14))
-
-#NYC
-NYC<- final_data %>% filter(marathon=="NYC")
-summary_all <- NYC %>%
-  group_by(year) %>%
-  summarise(
-    N=n(),
-    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
-    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
-    min_time=min(avg_chip_seconds, na.rm = TRUE),
-    max_time=max(avg_chip_seconds, na.rm = TRUE),
-    .groups="drop") %>%
-  mutate(
-    combined=paste0(
-      "N = ", N, "<br>",
-      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
-      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
-  select(year, combined)
-summary_all %>%
-  gt(rowname_col = "year") %>%
-  cols_label(combined="All Runners") %>%
-  fmt_markdown(columns="combined") %>%
-  tab_options(data_row.padding = px(3),table.font.size = px(14))
-
-
-
-
-#BOX AND WHISKER
-#BOSTON
-ggplot(boston, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
-  geom_boxplot(outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "Boston Marathon Chip Times by Gender") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-ggplot(boston, aes(x = "", y =avg_chip_seconds / 3600)) +
-  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "Boston Marathon Chip Times - All Runners") +
-  theme_minimal() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x  = element_blank(),
-        axis.ticks.x = element_blank())
-
-#BERLIN
-ggplot(berlin, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
-  geom_boxplot(outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "Berlin Marathon Chip Times by Gender") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-ggplot(berlin, aes(x = "", y =avg_chip_seconds / 3600)) +
-  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "Berlin Marathon Chip Times - All Runners") +
-  theme_minimal() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x  = element_blank(),
-        axis.ticks.x = element_blank())
-
-#CHICAGO
-ggplot(chicago, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
-  geom_boxplot(outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "Chicago Marathon Chip Times by Gender") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-ggplot(chicago, aes(x = "", y =avg_chip_seconds / 3600)) +
-  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "Chicago Marathon Chip Times - All Runners") +
-  theme_minimal() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x  = element_blank(),
-        axis.ticks.x = element_blank())
-
-
-#NYC
-ggplot(NYC, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
-  geom_boxplot(outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "NYC Marathon Chip Times by Gender") +
-  theme_minimal() +
-  theme(legend.position = "none")
-
-ggplot(NYC, aes(x = "", y =avg_chip_seconds / 3600)) +
-  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
-  scale_y_continuous(name = "Chip Time") +
-  labs(title = "NYC Marathon Chip Times - All Runners") +
-  theme_minimal() +
-  theme(axis.title.x = element_blank(),
-        axis.text.x  = element_blank(),
-        axis.ticks.x = element_blank())
-```
-
-# Preprocessing and Feature Engineering (KB, ZD, MG)
+# Preprocessing and Feature Engineering (KB, ZD, MH)
 
 Look at the full dataset for missing values (ZD, KB)
 ```{r}
@@ -1530,18 +1197,10 @@ str(test_data_scaled)
 We can see that scaled ozone was successfully removed from both train and test data. Now this dataset is ready for our initial linear regression model. 
 
 
-# Initial Modeling (ZD, MH) (**NEED TO CHECK ALL THE STEPS UNDERE HERE, IM NOT SURE WHAT CODE YALL WANT**)
+# Initial Modeling (ZD, MH)
 
-Initial Model (MH) (**NEED TO CHECK HERE**)
+Initial Model (MH) 
 ```{r}
-# Get rid of this model since we are dropping scaledPM25? Not sure if we want to add other model here? Maybe for Ozone bin? Im not to sure... (KB)
-
-#lm_initial_scaledPM25 <- lm(avg_chip_seconds ~ marathon + gender + subgroup + supershoe + scaled_avg_temp + scaled_precipitation + scaled_dew_point + scaled_wind_speed + scaled_visibility + scaled_sea_level_pressure + scaled_co + scaled_pm25 + ozone_bin + scaled_no2 + scaled_temp_aqi_interaction + scaled_avg_temp_gender_interaction, data = train_data_scaled)
-
-
-#summary(lm_initial_scaledPM25)
-#plot(lm_initial_scaledPM25)
-
 lm_initial_PM25bin <- lm(avg_chip_seconds ~ marathon + gender + subgroup + supershoe + scaled_avg_temp + scaled_precipitation + scaled_dew_point + scaled_wind_speed + scaled_visibility + scaled_sea_level_pressure + scaled_co + pm25_bin + ozone_bin + scaled_no2 + scaled_temp_aqi_interaction + scaled_avg_temp_gender_interaction, data = train_data_scaled)
 
 
@@ -1549,92 +1208,73 @@ summary(lm_initial_PM25bin)
 plot(lm_initial_PM25bin)
 
 ```
-Adding RMSE and MAE for looking at overfitting with test results below (MH/ZD) (**NEED TO CHECK HERE**)
+The plots satisfy the requiremnets for linear regression. Next we will test model performance
+
+Adding RMSE and MAE for looking at overfitting with test results below (MH/ZD)
 ```{r}
+
+#Train Data
 residuals_lm_initial_PM25bin <- lm_initial_PM25bin$residuals
 residuals_lm_initial_PM25bin_rmse <- sqrt(mean(residuals_lm_initial_PM25bin^2))
 residuals_lm_initial_PM25bin_mae <- mean(abs(residuals_lm_initial_PM25bin))
 
-#residuals_lm_initial_scaledPM25 <- lm_initial_scaledPM25$residuals
-#residuals_lm_initial_scaledPM25_rmse <- sqrt(mean(residuals_lm_initial_scaledPM25^2))
-#residuals_lm_initial_scaledPM25_mae <- mean(abs(residuals_lm_initial_scaledPM25))
-
-
-
-#model_compare_train <- data.frame(
-#  Model = c("Continuous PM2.5", "PM2.5 Bin"),
-#  RMSE  = c(residuals_lm_initial_scaledPM25_rmse,
-#            residuals_lm_initial_PM25bin_rmse),
-#  MAE   = c(residuals_lm_initial_scaledPM25_mae,
-#            residuals_lm_initial_PM25bin_mae),
-#  R2    = c(summary(lm_initial_scaledPM25)$r.squared,
-#            summary(lm_initial_PM25bin)$r.squared)
-#)
-
-model_compare_train <- data.frame(
-  Model = c("PM2.5 Bin"),
-  RMSE  = c(residuals_lm_initial_PM25bin_rmse),
-  MAE   = c(residuals_lm_initial_PM25bin_mae),
-  R2    = c(summary(lm_initial_PM25bin)$r.squared)
-)
-
-
-# Display nicely formatted table (NEED TO FIX THIS TITLE)
-knitr::kable(model_compare_train, digits = 4,
-             caption = "Training Data Comparison: Continuous vs Binned PM2.5")
-
 ```
 
-More Modeling (ZD) (**NEED TO FIX HERE**)
+Checking how well the model works on test data (ZD)
 ```{r}
 # build a function
-evaluate <- function(model, test_data) {
-  preds <- predict(model, newdata = test_data)
-  actual <- test_data$avg_chip_seconds
+evaluate <- function(model, test_data_scaled) {
+  preds <- predict(model, newdata = test_data_scaled)
+  actual <- test_data_scaled$avg_chip_seconds
   
   rmse <- sqrt(mean((preds - actual)^2))
   mae  <- mean(abs(preds - actual))
   r2   <- cor(preds, actual)^2
   
-  return(list(RMSE = rmse, MAE = mae, R2 = r2))
+  return(list(RMSE = rmse, MAE = mae, R2 = r2, preds  = preds, actual = actual))
 }
-
-# Evaluate Model 1 with scaled PM2.5
-#results_scaledPM25 <- evaluate(lm_initial_scaledPM25, test_data)
 
 # Evaluate Model 2 with PM2.5 bin
 results_PM25bin <- evaluate(lm_initial_PM25bin, test_data_scaled)
 ```
 
-Compare results (ZD) (**NEED TO FIX HERE**)
+Compare results (ZD/MH) 
 ```{r}
-#model_compare <- data.frame(
-#  Model = c("Continuous PM2.5", "PM2.5 Bin"),
-#  RMSE = c(results_scaledPM25$RMSE, results_PM25bin$RMSE),
-#  MAE  = c(results_scaledPM25$MAE,  results_PM25bin$MAE),
-#  R2   = c(results_scaledPM25$R2,   results_PM25bin$R2)
-#)
 
-#knitr::kable(model_compare, digits = 4,
-#             caption = "Comparison of Initial Models: Continuous vs Binned PM2.5")
+model_compare_train <- data.frame(
+  Model = c("PM2.5 Bin Train"),
+  RMSE  = c(residuals_lm_initial_PM25bin_rmse),
+  MAE   = c(residuals_lm_initial_PM25bin_mae),
+  R2    = c(summary(lm_initial_PM25bin)$r.squared)
+)
 
-model_compare <- data.frame(
-  Model = c("PM2.5 Bin"),
+model_compare_test <- data.frame(
+  Model = c("PM2.5 Bin Test"),
   RMSE  = c(results_PM25bin$RMSE),
   MAE   = c(results_PM25bin$MAE),
   R2    = c(results_PM25bin$R2)
 )
 
-knitr::kable(model_compare, digits = 4,
-             caption = "Comparison of Initial Models: Binned PM2.5")
+model_compare_all <- rbind(
+  model_compare_train,
+  model_compare_test
+)
+
+knitr::kable(model_compare_all, digits = 4,
+             caption = "Comparison of Initial Model")
+
+#for plotting
+plot(results_PM25bin$actual, results_PM25bin$preds,
+     xlab = "Observed",
+     ylab = "Predicted",
+     main = "Test Set: Observed vs Predicted")
+abline(0, 1, col = "red", lwd = 2)
+
 
 ```
 
-Build residual plots (ZD)
-```{r}
-plot(lm_initial_PM25bin, which = 1)   # Residuals vs Fitted
-plot(lm_initial_PM25bin, which = 2)   # Q–Q plot
-```
+The results of the Regression model shows the model is a good fit. The figure of observed v. predicted shows a strong linear relationship, and as the R2 for both train and test data (0.9866, 0.9892 respectively) suggests the model is able to account for almost 99% of the variation the model. This is likely due to subgroups finishing times being manually generated, and being a heavy driver for predicted finshing times which may skew interpretation of the effects of environmental predictors on subgroups and gender. Due to the small size of the dataset, we were unable to have subgroup and or gender as an interaction term for the whole model, therefore we will now investigate XGBoost models to help us develop a model to understand these interactions 
+ 
 
 # XGBoost Models (KB, ZD, MH)
 
@@ -1683,23 +1323,50 @@ Attempt for XGboost model containing the engineered features, binned features, a
 ```{r}
 # Remove identifiers before creating model matrix
 # Convert dataset to numeric-only matrix
-train_matrix <- model.matrix(
-  avg_chip_seconds ~ .,
-  data = train_data %>% select(-year, -n)
-)
+#train_matrix <- model.matrix(
+#  avg_chip_seconds ~ . - 1,
+#  data = train_data %>% select(-year, -n)
+#)
 
-test_matrix <- model.matrix(
-  avg_chip_seconds ~ .,
-  data = test_data %>% select(-year, -n)
-)
 
-# Remove intercept from both matrices
-train_matrix <- train_matrix[, colnames(train_matrix) != "(Intercept)"]
-test_matrix  <- test_matrix[,  colnames(test_matrix)  != "(Intercept)"]
+#To add library above
+library(fastDummies)
 
-# Convert to DMatrix format for tuning, needed for cross validation
-dtrain <- xgb.DMatrix(data = train_matrix, label = train_data$avg_chip_seconds)
-dtest  <- xgb.DMatrix(data = test_matrix,  label = test_data$avg_chip_seconds)
+train_matrix <- train_data %>%
+  select(-year, -n, -avg_chip_seconds) %>%
+  fastDummies::dummy_cols(
+    select_columns = c("marathon","subgroup","gender","supershoe","ozone_bin","pm25_bin"),
+    remove_first_dummy = FALSE,
+    remove_selected_columns = TRUE
+  ) %>%
+ mutate(across(everything(), ~ as.numeric(.))) %>%  # convert all columns to numeric
+  as.matrix()
+
+
+#test_matrix <- model.matrix(
+#  avg_chip_seconds ~ . - 1,
+#  data = test_data %>% select(-year, -n)
+#)
+
+test_matrix <- test_data %>%
+  select(-year, -n, -avg_chip_seconds) %>%
+  fastDummies::dummy_cols(
+    select_columns = c("marathon","subgroup","gender","supershoe","ozone_bin","pm25_bin"),
+    remove_first_dummy = FALSE,
+    remove_selected_columns = TRUE
+  ) %>%
+  mutate(across(everything(), ~ as.numeric(.))) %>%  # convert all columns to numeric
+  as.matrix()
+
+
+
+
+# Align columns
+test_matrix <- test_matrix[, colnames(train_matrix), drop = FALSE]
+
+dtrain <- xgb.DMatrix(train_matrix, label = train_data$avg_chip_seconds)
+dtest  <- xgb.DMatrix(test_matrix,  label = test_data$avg_chip_seconds)
+
 ```
 
 # Create our inital untuned basline XGBoost model (ZD, KB)
@@ -2203,6 +1870,740 @@ The engineered-feature model also achieves better test performance (Test RMSE �
 Both models achieve extremely high R2 values on training and test sets (≈0.998–0.999), showing that they capture nearly all variability in the target variable. Overall, the engineered-feature model is recommended, as it provides lower errors, better generalization, and more stable performance, while the raw-feature model performs worse across both CV and test metrics and may be less reliable on new data.
 
 
+
+
+#Graphing gain, cover and frequency for best XGBoost: xgb_model (MH)
+```{r}
+
+
+importance_Model <- xgb.importance(model = xgb_model)
+importance_Model
+
+#Gain
+gain_fig_xgb <- xgb.plot.importance(importance_Model, measure ="Gain") 
+
+#Used ChatGPT since I couldn't figure out how to add labels to the xgb.plot.importance() function
+gain_fig <- ggplot(importance_Model, aes(x = reorder(Feature, Gain), y = Gain)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Feature Importance by Gain",
+    x = "Feature",
+    y = "Importance Score"
+  ) +
+  theme_minimal()
+
+print(gain_fig)
+
+#Cover
+cover_fig_xgb <- xgb.plot.importance(importance_Model, measure ="Cover") 
+cover_fig <- ggplot(importance_Model, aes(x = reorder(Feature, Cover), y = Cover)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Feature Importance by Cover",
+    x = "Feature",
+    y = "Importance Score"
+  ) +
+  theme_minimal()
+
+print(cover_fig)
+
+#Frequency (aka weight)
+freq_fig_xgb <- xgb.plot.importance(importance_Model, measure ="Frequency")
+freq_fig <- ggplot(importance_Model, aes(x = reorder(Feature, Cover), y = Frequency)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Feature Importance by Frequency",
+    x = "Feature",
+    y = "Importance Score"
+  ) +
+  theme_minimal()
+
+print(freq_fig)
+
+```
+
+##SHAP
+Implement SHAP (ZD)
+
+```{r}
+# SHAP
+# Compute SHAP values for the raw XGB model
+shap_values <- shap.values(
+  xgb_model = xgb_model,
+  X_train = train_matrix
+)
+
+shap_long <- shap.prep( # convert SHAP values to long format
+  xgb_model = xgb_model,
+  X_train = train_matrix
+)
+shap.plot.summary(shap_long)
+
+```
+
+SHAP values to left of 0 (negative) represent decreases in predicted finishing time, while SHAP values to the right of 0 (positive) represent increases in predicted finishing time.
+
+Marathon location proves to be important in determining race results. Elite runners strongly decreased in predicted finishing time, while slow runners strongly increased in predicted finishing time. Temperature, ozone, dew point, and PM2.5 influence finishing time but their effects are limited compared to the subgrouping impacts.
+
+(ZD/MH)
+
+```{r}
+# PM2.5 effect by subgroup
+#Because we want to color by subgroup and our subgroups are one-hot encoded, the best way we found to do this is extrapolate for each one-hot encoded group and plot all together with ggplot
+
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "pm25_bin1",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "pm25_bin1",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "pm25_bin1",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "pm25_bin1",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, linewidth = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "PM2.5", y = "SHAP value", color = "Group")
+
+```
+
+Low PM2.5 values equate to a minimal effect on finishing time. Moderate PM2.5 values display performance weakening. High PM2.5 values show that the model predicts faster times. Extremely high PM 2.5 values seem to lead to slower times for runners.
+
+(ZD/MH)
+
+```{r}
+# Temperature effect by gender - 
+shap.plot.dependence(
+  shap_long,
+  x = "avg_temp",
+  color_feature = "gendermale"
+)
+
+
+#plot for gender:male 
+gender <- shap.plot.dependence(
+  shap_long,
+  x = "avg_temp",
+  color_feature = "gendermale"
+)
+#SHAP values broken down by 1 (male) or 0 (female) and relevant color.
+gender_points <- gender$data
+
+gender_points$color_value <- factor(
+  gender_points$color_value,
+  levels = c(0, 1),
+  labels = c("Female", "Male")
+)
+
+
+#plot each subgroup and relevant SHAP values
+ggplot(gender_points, aes(x = x_feature, y = value, color = color_value)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, size = 1.2) +
+  scale_color_manual(
+    values = c("Female" = "#E69F00", "Male" = "#0072B2")
+  ) +
+  labs(
+    x = "Average Temp",
+    y = "SHAP value",
+    color = "Gender"
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "avg_temp",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "avg_temp",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "avg_temp",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "avg_temp",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "Average Temp", y = "SHAP value", color = "Group")
+
+```
+Temperature displays a much clearer impact than the PM2.5 results. At lower temperatures, the SHAP values are negative and ultimately predict a faster finishing time. At moderate temperatures, the effects are rather neutral. At higher temperatures, the SHAP values begin to rise, indicating a slower predicted finish. While extremely warm temperatures the SHAP values sharply increase the predicted finishing time by a rough average of 400 seconds. Generally speaking, colder temperatures appear to improve race time while warmer temperatures hinder race time.
+
+```{r}
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "ozone_bin1",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "ozone_bin1",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "ozone_bin1",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "ozone_bin1",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "Ozone", y = "SHAP value", color = "Group")
+```
+
+
+
+
+```{r}
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "wind_speed",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "wind_speed",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "wind_speed",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "wind_speed",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "Wind Speed", y = "SHAP value", color = "Group")
+```
+```{r}
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "dew_point",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "dew_point",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "dew_point",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "dew_point",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "Dewpoint", y = "SHAP value", color = "Group")
+```
+```{r}
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "no2",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "no2",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "no2",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "no2",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "NO2", y = "SHAP value", color = "Group")
+```
+
+```{r}
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "co",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "co",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "co",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "co",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "CO", y = "SHAP value", color = "Group")
+```
+
+```{r}
+#plot for elite subgroup
+elite <- shap.plot.dependence(
+  shap_long,
+  x = "temp_aqi_interaction",
+  color_feature = "subgroupelite"
+)
+#SHAP values broken down by 1 (elite) or 0 (not-elite) and relevant color.
+elite_points <- elite$data
+
+#repeated for competitive subgroup
+comp <- shap.plot.dependence(
+  shap_long,
+  x = "temp_aqi_interaction",
+  color_feature = "subgroupcompetitive"
+)
+comp_points <- comp$data
+
+#repeated for recreational subgroup
+rec <- shap.plot.dependence(
+  shap_long,
+  x = "temp_aqi_interaction",
+  color_feature = "subgrouprecreational"
+)
+rec_points <- rec$data
+
+#repeated for slow subgroup
+slow <- shap.plot.dependence(
+  shap_long,
+  x = "temp_aqi_interaction",
+  color_feature = "subgroupslow"
+)
+slow_points <- slow$data
+
+
+
+#subset so each dataset hase color_value = 1 (the dataframe's positive subroup)
+elite_points <- subset(elite_points, color_value == 1)
+comp_points <- subset(comp_points, color_value == 1)
+rec_points <- subset(rec_points, color_value == 1)
+slow_points <- subset(slow_points, color_value == 1)
+
+#add group to each dataframe for merge
+elite_points$group <- "Elite"
+comp_points$group  <- "Comp"
+rec_points$group   <- "Rec"
+slow_points$group  <- "Slow"
+
+#merge
+all_points <- rbind(elite_points, comp_points, rec_points, slow_points)
+
+#plot each subgroup and relevant SHAP values
+ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
+  geom_point(alpha = 0.4) +
+  geom_smooth(se = FALSE, size = 0.8) +   # one smooth line per group
+  scale_color_manual(values = c(
+    "Elite" = "#3B77BC",
+    "Comp"  = "#E1BE6A",
+    "Rec"   = "#55A868",
+    "Slow"  = "#C44E52"
+  ),
+  breaks = c("Elite", "Comp", "Rec", "Slow") 
+  ) +
+  theme_minimal() +
+  labs(x = "TempXAQI", y = "SHAP value", color = "Group")
+```
+```{r}
+#plot for gender:male 
+gender <- shap.plot.dependence(
+  shap_long,
+  x = "temp_aqi_interaction",
+  color_feature = "gendermale"
+)
+#SHAP values broken down by 1 (male) or 0 (female) and relevant color.
+gender_points <- gender$data
+
+gender_points$color_value <- factor(
+  gender_points$color_value,
+  levels = c(0, 1),
+  labels = c("Female", "Male")
+)
+
+
+#plot each subgroup and relevant SHAP values
+ggplot(gender_points, aes(x = x_feature, y = value, color = color_value)) +
+  geom_point(alpha = 0.6) +
+  geom_smooth(method = "loess", se = FALSE, size = 1.2) +
+  scale_color_manual(
+    values = c("Female" = "#E69F00", "Male" = "#0072B2")
+  ) +
+  labs(
+    x = "TempXAQI",
+    y = "SHAP value",
+    color = "Gender"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # Test Berlin data on best model (KB, MH)
 We found that the best model was the engineered-feature XGBoost model. 
 
@@ -2456,3 +2857,338 @@ final_data <- final_data %>%
       TRUE ~ "slow"
     )
   )
+  
+  
+  
+#The following chunk was used to understand the breakdown between marathons, but was not discussed or actively used for data cleaning or model generation.
+```{r}
+#Boston
+boston <- final_data %>% filter(marathon=="Boston")
+
+#Summarize
+summary_long <- boston %>%
+  group_by(year, gender) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
+    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
+
+#Pivot wider — ensure one row per year
+summary_wide <- summary_long %>%
+  pivot_wider(id_cols=year,                   
+    names_from=gender,
+    values_from=c(N, mean_sd, min_max),
+    names_glue="{gender}_{.value}") %>% arrange(year)
+
+#Combine into one column per gender for GT
+summary_combined <- summary_wide %>%
+  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
+         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
+  select(year, Female, Male)
+
+#GT table
+summary_combined %>%
+  gt(rowname_col = "year") %>%
+  cols_label(Female = "Female",
+             Male   = "Male") %>%
+  fmt_markdown(columns = c(Female, Male)) %>%
+  tab_options(
+    data_row.padding = px(3),
+    table.font.size = px(14))
+
+
+
+#Berlin
+berlin<- final_data  %>% filter(marathon=="Berlin")
+#Summarize
+summary_long <- berlin %>%
+  group_by(year, gender) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
+    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
+
+#Pivot wider — ensure one row per year
+summary_wide <- summary_long %>%
+  pivot_wider(id_cols=year,                   
+    names_from=gender,
+    values_from=c(N, mean_sd, min_max),
+    names_glue="{gender}_{.value}") %>% arrange(year)
+
+#Combine into one column per gender for GT
+summary_combined <- summary_wide %>%
+  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
+         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
+  select(year, Female, Male)
+
+#GT table
+summary_combined %>%
+  gt(rowname_col = "year") %>%
+  cols_label(Female = "Female",
+             Male   = "Male") %>%
+  fmt_markdown(columns = c(Female, Male)) %>%
+  tab_options(
+    data_row.padding = px(3),
+    table.font.size = px(14))
+
+
+#Chicago
+chicago<- final_data  %>% filter(marathon=="Chicago")
+#Summarize
+summary_long <- chicago %>%
+  group_by(year, gender) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
+    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
+
+#Pivot wider — ensure one row per year
+summary_wide <- summary_long %>%
+  pivot_wider(id_cols=year,                   
+    names_from=gender,
+    values_from=c(N, mean_sd, min_max),
+    names_glue="{gender}_{.value}") %>% arrange(year)
+
+#Combine into one column per gender for GT
+summary_combined <- summary_wide %>%
+  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
+         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
+  select(year, Female, Male)
+
+#GT table
+summary_combined %>%
+  gt(rowname_col = "year") %>%
+  cols_label(Female = "Female",
+             Male   = "Male") %>%
+  fmt_markdown(columns = c(Female, Male)) %>%
+  tab_options(
+    data_row.padding = px(3),
+    table.font.size = px(14))
+
+#NYC
+NYC<- final_data %>% filter(marathon=="NYC")
+#Summarize
+summary_long <- NYC %>%
+  group_by(year, gender) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(mean_sd= sprintf("%.1f (%.1f)", mean_time, sd_time),
+    min_max= sprintf("(%.1f, %.1f)", min_time, max_time))
+
+#Pivot wider — ensure one row per year
+summary_wide <- summary_long %>%
+  pivot_wider(id_cols=year,                   
+    names_from=gender,
+    values_from=c(N, mean_sd, min_max),
+    names_glue="{gender}_{.value}") %>% arrange(year)
+
+#Combine into one column per gender for GT
+summary_combined <- summary_wide %>%
+  mutate(Female=paste0("N = ", female_N, "<br>", female_mean_sd, "<br>", female_min_max),
+         Male=paste0("N = ", male_N, "<br>", male_mean_sd, "<br>", male_min_max)) %>%
+  select(year, Female, Male)
+
+#GT table
+summary_combined %>%
+  gt(rowname_col = "year") %>%
+  cols_label(Female = "Female",
+             Male   = "Male") %>%
+  fmt_markdown(columns = c(Female, Male)) %>%
+  tab_options(
+    data_row.padding = px(3),
+    table.font.size = px(14))
+
+
+#All runners
+
+#Boston
+boston<- final_data %>% filter(marathon=="Boston")
+summary_all <- boston %>%
+  group_by(year) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(
+    combined=paste0(
+      "N = ", N, "<br>",
+      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
+      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
+  select(year, combined)
+summary_all %>%
+  gt(rowname_col = "year") %>%
+  cols_label(combined="All Runners") %>%
+  fmt_markdown(columns="combined") %>%
+  tab_options(data_row.padding = px(3),table.font.size = px(14))
+
+
+
+
+#Berlin
+berlin<- final_data %>% filter(marathon=="Berlin")
+summary_all <- berlin %>%
+  group_by(year) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(
+    combined=paste0(
+      "N = ", N, "<br>",
+      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
+      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
+  select(year, combined)
+summary_all %>%
+  gt(rowname_col = "year") %>%
+  cols_label(combined="All Runners") %>%
+  fmt_markdown(columns="combined") %>%
+  tab_options(data_row.padding = px(3),table.font.size = px(14))
+
+
+#Chicago
+chicago<- final_data %>% filter(marathon=="Chicago")
+summary_all <- chicago %>%
+  group_by(year) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(
+    combined=paste0(
+      "N = ", N, "<br>",
+      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
+      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
+  select(year, combined)
+summary_all %>%
+  gt(rowname_col = "year") %>%
+  cols_label(combined="All Runners") %>%
+  fmt_markdown(columns="combined") %>%
+  tab_options(data_row.padding = px(3),table.font.size = px(14))
+
+#NYC
+NYC<- final_data %>% filter(marathon=="NYC")
+summary_all <- NYC %>%
+  group_by(year) %>%
+  summarise(
+    N=n(),
+    mean_time=mean(avg_chip_seconds, na.rm = TRUE),
+    sd_time=sd(avg_chip_seconds, na.rm = TRUE),
+    min_time=min(avg_chip_seconds, na.rm = TRUE),
+    max_time=max(avg_chip_seconds, na.rm = TRUE),
+    .groups="drop") %>%
+  mutate(
+    combined=paste0(
+      "N = ", N, "<br>",
+      sprintf("%.1f (%.1f)", mean_time, sd_time), "<br>",
+      sprintf("(%.1f, %.1f)", min_time, max_time))) %>%
+  select(year, combined)
+summary_all %>%
+  gt(rowname_col = "year") %>%
+  cols_label(combined="All Runners") %>%
+  fmt_markdown(columns="combined") %>%
+  tab_options(data_row.padding = px(3),table.font.size = px(14))
+
+
+
+
+#BOX AND WHISKER
+#BOSTON
+ggplot(boston, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "Boston Marathon Chip Times by Gender") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplot(boston, aes(x = "", y =avg_chip_seconds / 3600)) +
+  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "Boston Marathon Chip Times - All Runners") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank())
+
+#BERLIN
+ggplot(berlin, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "Berlin Marathon Chip Times by Gender") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplot(berlin, aes(x = "", y =avg_chip_seconds / 3600)) +
+  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "Berlin Marathon Chip Times - All Runners") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank())
+
+#CHICAGO
+ggplot(chicago, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "Chicago Marathon Chip Times by Gender") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplot(chicago, aes(x = "", y =avg_chip_seconds / 3600)) +
+  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "Chicago Marathon Chip Times - All Runners") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank())
+
+
+#NYC
+ggplot(NYC, aes(x = gender, y =avg_chip_seconds/ 3600, fill = gender)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "NYC Marathon Chip Times by Gender") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggplot(NYC, aes(x = "", y =avg_chip_seconds / 3600)) +
+  geom_boxplot(fill = "steelblue", outlier.alpha = 0.3) +
+  scale_y_continuous(name = "Chip Time") +
+  labs(title = "NYC Marathon Chip Times - All Runners") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x  = element_blank(),
+        axis.ticks.x = element_blank())
+```
+  
+  
