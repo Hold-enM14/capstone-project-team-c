@@ -1423,50 +1423,50 @@ To make sure our XGBoost model is as accurate and reliable as possible, we built
 
 Need to undo the #'s if want to run the long loop. 
 ```{r}
-#set.seed(42)
+set.seed(42)
 
-#params_grid <- expand.grid(
-#  max_depth = c(2, 3, 4),
-#  min_child_weight = c(3, 5, 10),
-#  subsample = c(0.7, 0.8),
-#  colsample_bytree = c(0.6, 0.8),
-#  eta = c(0.05, 0.1),
-#  gamma = c(0, 0.1),
-#  lambda = c(0.5, 1),
-#  alpha = c(0, 1)
-#)
+params_grid <- expand.grid(
+  max_depth = c(2, 3, 4),
+  min_child_weight = c(3, 5, 10),
+  subsample = c(0.7, 0.8),
+  colsample_bytree = c(0.6, 0.8),
+  eta = c(0.05, 0.1),
+  gamma = c(0, 0.1),
+  lambda = c(0.5, 1),
+  alpha = c(0, 1)
+)
 
-#results <- list()
+results <- list()
 
-#for (i in 1:nrow(params_grid)) {
+for (i in 1:nrow(params_grid)) {
+
+  params <- list(
+    objective = "reg:squarederror",
+    max_depth = params_grid$max_depth[i],
+    min_child_weight = params_grid$min_child_weight[i],
+    subsample = params_grid$subsample[i],
+    colsample_bytree = params_grid$colsample_bytree[i],
+    eta = params_grid$eta[i],
+    gamma = params_grid$gamma[i],
+    lambda = params_grid$lambda[i],
+    alpha = params_grid$alpha[i]
+  )
+
+  cv <- xgb.cv(
+    params = params,
+    data = dtrain,
+    nrounds = 1500,
+    nfold = 5,
+    early_stopping_rounds = 30,
+    verbose = 0
+  )
   
-#  params <- list(
-#    objective = "reg:squarederror",
-#    max_depth = params_grid$max_depth[i],
-#    min_child_weight = params_grid$min_child_weight[i],
-#    subsample = params_grid$subsample[i],
-#    colsample_bytree = params_grid$colsample_bytree[i],
-#    eta = params_grid$eta[i],
-#    gamma = params_grid$gamma[i],
-#    lambda = params_grid$lambda[i],
-#    alpha = params_grid$alpha[i]
-#  )
-  
-#  cv <- xgb.cv(
-#    params = params,
-#    data = dtrain,
-#    nrounds = 1500,
-#    nfold = 5,
-#    early_stopping_rounds = 30,
-#    verbose = 0
-#  )
-  
-#  results[[i]] <- list(
-#    params = params,
-#    best_rmse = min(cv$evaluation_log$test_rmse_mean),
-#    best_iter = cv$best_iteration
-#  )
-#}
+  results[[i]] <- list(
+    params = params,
+    best_rmse = min(cv$evaluation_log$test_rmse_mean),
+    best_iter = cv$best_iteration
+  )
+}
 ```
 
 Next extract the best hyperparameters (KB)
@@ -1474,19 +1474,19 @@ Next extract the best hyperparameters (KB)
 Need to undo the #'s if want to run the long loop and see the best parameters and nrounds. 
 ```{r}
 # Find the index of the combination with the lowest CV RMSE
-#best_index <- which.min(sapply(results, function(x) x$best_rmse))
+best_index <- which.min(sapply(results, function(x) x$best_rmse))
 
 # Get the best CV RMSE
-#cv_rmse <- results[[best_index]]$best_rmse
-#cv_rmse
+cv_rmse <- results[[best_index]]$best_rmse
+cv_rmse
 
 # Get the best parameters
-#best_params <- results[[best_index]]$params
-#best_params
+best_params <- results[[best_index]]$params
+best_params
 
 # Get the best number of boosting rounds
-#best_nrounds <- results[[best_index]]$best_iter
-#best_nrounds
+best_nrounds <- results[[best_index]]$best_iter
+best_nrounds
 
 ```
 
@@ -1531,47 +1531,71 @@ $alpha
 Running XGBoost model with the best hyperparameters 
 Need to undo the #'s if want to run the long loop and see the best parameters and nrounds. 
 ```{r}
-#set.seed(42)
+set.seed(42)
+
+#watchlist for overfitting test
+watchlist <- list(
+  train = dtrain,
+  eval  = dtest
+)
+
 
 # Set best hyperparameters
-#xgb_model <- xgb.train(
-#  params  = best_params,
-#  data    = dtrain,
-#  nrounds = best_nrounds,
-#  verbose = 0
-#)
+xgb_model <- xgb.train(
+  params  = best_params,
+  data    = dtrain,
+  nrounds = best_nrounds,
+  watchlist = watchlist,
+  verbose = 0
+)
+
+#extract eval log
+eval_log <- xgb_model$evaluation_log
+
+#Visual overfitting test
+ggplot(eval_log, aes(x = iter)) +
+  geom_line(aes(y = train_rmse, color = "Train")) +
+  geom_line(aes(y = eval_rmse,  color = "Test")) +
+  labs(
+    title = "XGBoost Overfitting Check",
+    x = "Boosting Round",
+    y = "RMSE"
+  ) +
+  scale_color_manual(values = c("Train" = "blue", "Test" = "red")) +
+  theme_minimal()
+
 
 # Predictions on train and test sets
-#pred_train <- predict(xgb_model, dtrain)
-#pred_test  <- predict(xgb_model, dtest)
+pred_train <- predict(xgb_model, dtrain)
+pred_test  <- predict(xgb_model, dtest)
 
 # Train metrics
-#rmse_train <- rmse(train_data$avg_chip_seconds, pred_train)
-#mae_train <- mae(train_data$avg_chip_seconds, pred_train)
-#rss_train <- sum((train_data$avg_chip_seconds - pred_train)^2)
-#tss_train <- sum((train_data$avg_chip_seconds - mean(train_data$avg_chip_seconds))^2)
-#r2_train  <- 1 - rss_train / tss_train
+rmse_train <- rmse(train_data$avg_chip_seconds, pred_train)
+mae_train <- mae(train_data$avg_chip_seconds, pred_train)
+rss_train <- sum((train_data$avg_chip_seconds - pred_train)^2)
+tss_train <- sum((train_data$avg_chip_seconds - mean(train_data$avg_chip_seconds))^2)
+r2_train  <- 1 - rss_train / tss_train
 
 # Test metrics
-#rmse_test <- rmse(test_data$avg_chip_seconds, pred_test)
-#mae_test  <- mae(test_data$avg_chip_seconds, pred_test)
-#rss_test  <- sum((test_data$avg_chip_seconds - pred_test)^2)
-#tss_test  <- sum((test_data$avg_chip_seconds - mean(test_data$avg_chip_seconds))^2)
-#r2_test   <- 1 - rss_test / tss_test
+rmse_test <- rmse(test_data$avg_chip_seconds, pred_test)
+mae_test  <- mae(test_data$avg_chip_seconds, pred_test)
+rss_test  <- sum((test_data$avg_chip_seconds - pred_test)^2)
+tss_test  <- sum((test_data$avg_chip_seconds - mean(test_data$avg_chip_seconds))^2)
+r2_test   <- 1 - rss_test / tss_test
 
 
-# Combine into a single table
-#model_eval <- data.frame(
-#  Metric = c("Train RMSE", "Train MAE", "Train R2",
-#             "CV RMSE",
-#             "Test RMSE", "Test MAE", "Test R2"),
-#  Value  = c(rmse_train, mae_train, r2_train,
-#             cv_rmse,
-#             rmse_test, mae_test, r2_test)
-#)
+#Combine into a single table
+model_eval <- data.frame(
+  Metric = c("Train RMSE", "Train MAE", "Train R2",
+             "CV RMSE",
+             "Test RMSE", "Test MAE", "Test R2"),
+  Value  = c(rmse_train, mae_train, r2_train,
+             cv_rmse,
+             rmse_test, mae_test, r2_test)
+)
 
-# Display table
-#knitr::kable(model_eval, digits = 4, caption = "XGBoost (Engineered Features) Model Best Hyperparameters - #Overfitting Check")
+#Display table
+knitr::kable(model_eval, digits = 4, caption = "XGBoost (Engineered Features) Model Best Hyperparameters - #Overfitting Check")
 
 ```
 
