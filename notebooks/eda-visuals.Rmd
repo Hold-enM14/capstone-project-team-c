@@ -80,7 +80,7 @@ continuous_summary_grouped <- final_data %>%
 continuous_summary_grouped
 ```
 
-
+Creating visualizations: (ZD)
 ```{r}
 # Figure 1: Distribution of Average Finishing Times
 library(ggplot2) # load plotting library
@@ -93,7 +93,7 @@ ggplot(final_data, aes(x = avg_chip_seconds / 3600)) + # convert from seconds to
 ```
 
 
-
+(ZD)
 ```{r}
 # Figure 2: Overview of the Effect of Avg Temperature on Finishing Time by Marathon
 ggplot(final_data, aes(x = avg_temp, y = avg_chip_seconds / 3600, color = marathon)) +
@@ -107,7 +107,7 @@ ggplot(final_data, aes(x = avg_temp, y = avg_chip_seconds / 3600, color = marath
 ```
 
 
-
+(ZD)
 ```{r}
 # Figure 3: Overview of the Relationship Between Air Quality and Finishing Time by Marathon
 ggplot(final_data, aes(x = aqi, y = avg_chip_seconds / 3600, color = marathon)) +
@@ -122,7 +122,7 @@ ggplot(final_data, aes(x = aqi, y = avg_chip_seconds / 3600, color = marathon)) 
 ```
 
 
-
+(ZD)
 ```{r}
 # select only the numeric variables
 numeric_vars <- final_data %>%
