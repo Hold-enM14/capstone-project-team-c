@@ -37,7 +37,7 @@ missing_summary <- final_data %>%
 knitr::kable(missing_summary, caption = "Missing Values per Variable")
 ```
 
- Spit the data so Berlin is used as a second case study to show how the method performs with missing data (whether successful or not). (KB)
+ Split the data so Berlin is used as a second case study to show how the method performs with missing data (whether successful or not). (KB)
 ```{r}
 main_data <- final_data %>% filter(marathon != "Berlin")
 berlin_data <- final_data %>% filter(marathon == "Berlin")
