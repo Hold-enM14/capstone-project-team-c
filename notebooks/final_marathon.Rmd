@@ -331,7 +331,6 @@ We can see that all the datasets were merged into one final_data successfully. W
 
 # EDA Tables and Graphing (KB, ZD, MH)
 
-# Create Table 1
 ## Table 1: Continuous Variable Summary (ZD)
 ```{r}
 # Select the continuous variables
@@ -348,7 +347,6 @@ continuous_summary <- final_data %>%
 continuous_summary
 ```
 
-# Create Table 2
 ## Table 2: Continuous variables summarized by subgroup and gender (ZD)
 ```{r}
 # Select continuous variables
@@ -390,9 +388,8 @@ continuous_summary_grouped <- final_data %>%
 continuous_summary_grouped
 ```
 
-# Create Table 3
-## Table 3: Countinuous variables overall
-Select the continuous variables to make a clean table: (KB)
+## Table 3: Countinuous variables overall (KB)
+Select the continuous variables to make a clean table:
 ```{r}
 # Select continuous variables
 continuous_vars <- final_data %>% 
@@ -468,8 +465,9 @@ The table above summarizes key descriptive statistics for continuous variables i
 All the variables show reasonable ranges and central values for weather and airquality conditions during the marathon events. We can see that chip times cluster around 4 hours (about 15,600 seconds) with moderate variability. Temperature measures (high, low, and average) fall within typical seasonal ranges, while air-quality variables such as ozone, pm10, pm2.5, and co show right-skewed distributions, indicating occasional higher pollution days. Visibility also shows strong right skew and high kurtosis, suggesting a few unusually high values compared with the rest of the data. Overall, most variables are moderately skewed, with some (like visibility and co) showing heavier tails.
 
 
-# Create a histogram for average finishing time
 ## Figure 1: Distribution of Average Finishing Times (ZD)
+
+Create a histogram for average finishing time
 ```{r}
 library(ggplot2) # load plotting library
 ggplot(final_data, aes(x = avg_chip_seconds / 3600)) + # convert from seconds to hours
@@ -616,7 +614,7 @@ ggplot(final_data, aes(x = year, y = avg_chip_seconds)) +
 
 We cans see that over time, most finishing times become faster. We can also see potential shifts in faster finishing times past 2018, where there was the introduction of supershoes. We can really see this in the Chicago marathon, as it has data till 2023. We can potentially see the trend starting with Berlin, however it is hard to tell since the data is only available till 2019. NYC seems to have a pretty  constant finishing times over the years. Boston on the other hand, seems to have increasing finishing times, however it is also hard to interpret the affect of supershoes due to data only being available till 2019, only one year after supershoes have been widely introduced. 
 
-## Figure 8.  (MH)
+## Figure 8. (ADD HERE) (MH)
 ```{r}
 #Add 'Overall' graph, making df 'final_data2' for purpose of figure 8 and  9
 final_data2 <- final_data %>% mutate(subgroup = tolower(as.character(subgroup))) %>% bind_rows(final_data %>% 
@@ -637,7 +635,7 @@ ggplot(final_data2, aes(x = visibility, y = avg_chip_seconds / 3600, color = mar
 ```
 A decrease in visibility appears to slow down runners across all subgroups. 
 
-## Figure 9: (MH)
+## Figure 9: (ADD HERE) (MH)
 ```{r}
 # Average Finishing Time by Year, Subgroup, Gender (Supershoes)
 ggplot(final_data2, aes(x = year, y = avg_chip_seconds, color = marathon)) +
@@ -1203,7 +1201,7 @@ We can see that scaled ozone was successfully removed from both train and test d
 
 # Initial Modeling (ZD, MH)
 
-Initial Model (MH) 
+Creating Initial Linear Regression Model (MH) 
 ```{r}
 lm_initial_PM25bin <- lm(avg_chip_seconds ~ marathon + gender + subgroup + supershoe + scaled_avg_temp + scaled_precipitation + scaled_dew_point + scaled_wind_speed + scaled_visibility + scaled_sea_level_pressure + scaled_co + pm25_bin + ozone_bin + scaled_no2 + scaled_temp_aqi_interaction + scaled_avg_temp_gender_interaction, data = train_data_scaled)
 
@@ -1370,7 +1368,7 @@ dtest  <- xgb.DMatrix(test_matrix,  label = test_data$avg_chip_seconds)
 
 ```
 
-# Create our inital untuned basline XGBoost model (ZD, KB)
+### Create our inital untuned basline XGBoost model (ZD, KB)
 ```{r}
 set.seed(123)
 
@@ -1770,7 +1768,7 @@ dtrain_raw <- xgb.DMatrix(data = train_matrix_raw, label = train_data_raw$avg_ch
 dtest_raw  <- xgb.DMatrix(data = test_matrix_raw,  label = test_data_raw$avg_chip_seconds)
 ```
 
-# Create our inital untuned basline for the raw features XGBoost model (ZD, KB)
+### Create our inital untuned basline for the raw features XGBoost model (ZD, KB)
 ```{r}
 set.seed(42)
 
@@ -1820,7 +1818,7 @@ knitr::kable(model_eval_raw, digits = 4,
 We can see the untuned XGBoost model using raw features fits the training data almost perfectly (Train RMSE = 5.73, Train R2 = 1.0), but its performance drops substantially on the test set (Test RMSE = 163.04, Test R2 = 0.9976). This large gap between training and test errors indicates that the model is strongly overfitting: it memorizes the training data rather than learning patterns that generalize. While the test R2 is still very high, the absolute errors are large, suggesting predictions on new data would likely be unreliable.
 
 
-## Introduce cross validation hyperparameter tuning (KB)
+### Introduce cross validation hyperparameter tuning (KB)
 Do this by first running a tuning loop on the raw features as done previously (KB)
 
 To make sure our XGBoost raw features model is as accurate and reliable as possible, we built a hyperparameter-tuning loop. We can use this instead of guessing which settings would give us the best performance. This loop is able to automatically test several combinations using 5-fold cross-validation. It then checks how well the model predicts on unseen data and records the best RMSE and number of boosting rounds. Then it selects the combination with the lowest cross-validated error. The tuning loop is a balanced model that is flexible enough to capture real patterns and its regularized enough to avoid memorizing all the noise.
@@ -2070,7 +2068,7 @@ Both R2 values indicate excellent fit (Train R2 ≈ 0.9999, Test R2 ≈ 0.9987).
 Overall, the tuned raw-feature XGBoost model outperforms the untuned baseline, reducing test RMSE from ~154.76 to ~120.86 (~22% reduction), improving predictive accuracy and stability. While training performance remains very strong, the model still shows some overfitting, likely due to the small dataset.
 
 
-Check for variable importance (ZD, KB)
+### Check for variable importance (ZD, KB)
 ```{r}
 # Variable importance amongst final XGBoosted model
 importance <- xgb.importance(model = xgb_raw_model)
@@ -2080,7 +2078,7 @@ xgb.plot.importance(importance)
 ```
 We can see that subgroupslow and subgroupelite are the features the model relied on most to reduce prediction error. Variables like wind_speed or low_temp are less influential but still contribute a little. Features with extremely low Frequency are main_pollutantPM25, precipitation, and main_pollutantOzone, which are barely used by the model. 
 
-# Comparison of models (NEED TO UPDATE) (KB)
+# Comparison of models (KB)
 ```{r}
 # Comparison table of Raw vs Engineered XGBoost models
 comparison_table <- data.frame(
@@ -2090,14 +2088,14 @@ comparison_table <- data.frame(
     "Test RMSE", "Test MAE", "Test R²"
   ),
   Raw_Feature_Model = c(
-    59.7257, 44.3783, 0.9997,
-    164.6655,
-    151.7229, 113.0459, 0.9979
+    30.6632, 23.7209, 0.9999,
+    177.8890,
+    120.8608, 90.1244, 0.9987
   ),
   Engineered_Feature_Model = c(
-    45.8606, 33.3444, 0.9998,
-    151.6136,
-    138.3993, 91.0063, 0.9984
+    31.2820, 23.6533, 0.9999,
+    145.6836,
+    127.4087, 82.1464, 0.9987
   )
 )
 
@@ -2105,7 +2103,7 @@ comparison_table <- data.frame(
 knitr::kable(
   comparison_table,
   digits = 4,
-  caption = "Comparison of XGBoost Raw-Feature vs Engineered-Feature Models"
+  caption = "Comparison of XGBoost Raw-Feature vs Engineered-Feature Models (Updated)"
 )
 
 ```
@@ -2119,9 +2117,11 @@ The engineered-feature model also achieves better test performance (Test RMSE �
 Both models achieve extremely high R2 values on training and test sets (≈0.998–0.999), showing that they capture nearly all variability in the target variable. Overall, the engineered-feature model is recommended, as it provides lower errors, better generalization, and more stable performance, while the raw-feature model performs worse across both CV and test metrics and may be less reliable on new data.
 
 
+# Model Interpretation & Feature Analysis (MH / ZD)
 
+## Feature Importance: Gain, Cover & Frequency (MH)
 
-#Graphing gain, cover and frequency for best XGBoost: xgb_model (MH)
+Using xgb_model:
 ```{r}
 
 
@@ -2176,9 +2176,9 @@ print(freq_fig)
 
 The table shows the breakdown of the gain, cover and frequency (also known as weight). Gain shows the average improvement in the model performance when the feature is used, frequency shows the number of times the feature has been used in a split, and coverage shows the average number of instances affected by splits that use the feature. Based on these results the most important features for prediction are the running performance groups. The frequency and cover figures are helpful for seeing which environmental features are driving the tree once subgroups are split out. Temperature/Gender interaction, Average temperature, dewpoint are consistently high in all three figures.
 
-##SHAP
-Implement SHAP (ZD)
+## SHAP Analysis (ZD)
 
+Implement SHAP:
 ```{r}
 # SHAP
 # Compute SHAP values for the raw XGB model
@@ -2199,7 +2199,7 @@ SHAP values to left of 0 (negative) represent decreases in predicted finishing t
 
 Marathon location proves to be important in determining race results. Elite runners strongly decreased in predicted finishing time, while slow runners strongly increased in predicted finishing time. Temperature, ozone, dew point, and PM2.5 influence finishing time but their effects are limited compared to the subgrouping impacts.
 
-#Investigate interactions between environmental features and subgroups/genders (ZD/MH)
+## Feature Interactions by Subgroup & Gender (MH / ZD)
 
 ```{r}
 # PM2.5 effect by subgroup
@@ -2526,7 +2526,7 @@ ggplot(all_points, aes(x = x_feature, y = value, color = group)) +
   labs(x = "Wind Speed", y = "SHAP value", color = "Group")
 ```
 
-wind speeds above 30 miles per hour are relatively rare in the dataset, but when they do occur, they’re associated with substantial slowdowns across all runner subgroups. Slow runners appear to be the most resilient to increased wind speeds. One possible explanation is that higher running speeds experience greater aerodynamic drag, making wind more impactful for faster runners.
+Wind speeds above 30 miles per hour are relatively rare in the dataset, but when they do occur, they’re associated with substantial slowdowns across all runner subgroups. Slow runners appear to be the most resilient to increased wind speeds. One possible explanation is that higher running speeds experience greater aerodynamic drag, making wind more impactful for faster runners.
 
 
 ```{r}
@@ -2846,12 +2846,6 @@ ggplot(gender_points, aes(x = x_feature, y = value, color = color_value)) +
 ```
 
 The same interaction term is tested by gender. While the avg temperature showed that male runners experienced less slow downs, when we look at the temperature and AQI interaction term, we see that women are more resilient overall, and actually experience a much greater performance boost at lower interaction terms than male runners.
-
-
-
-
-
-
 
 
 
