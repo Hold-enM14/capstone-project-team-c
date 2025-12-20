@@ -32,8 +32,8 @@ Can weather and environmental factors—such as temperature, wind speed, precipi
 
 ## Custom Functions
 There are two custom functions written and executed within the repo `final_marathon.rmd`:
-- `clean_chip_time`: cleans and standardizes chip-time values
-- `evaluate`: creates a list based on inputted model returning RMSE, MAE, R1, preds, and actual that are used for evaluation and graphing of linear model
+- `clean_chip_time`: cleans and standardizes chip-time values during early data cleaning steps
+- `evaluate`: creates a list based on inputted model returning RMSE, MAE, R2, preds, and actual that are used for evaluation and graphing of linear model
 
 ## How to Run
 1. Clone the repository
