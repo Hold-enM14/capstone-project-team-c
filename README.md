@@ -26,7 +26,7 @@ Can weather and environmental factors—such as temperature, wind speed, precipi
 
 - `data`: Contains the raw datasets and data dictionary.
 - `notebooks`: Contains the `final-marathon.Rmd` and `archived-notebooks`/ subfolder with older .Rmd files retained for reference.
-- `reports`: Contains all project reports, including the final report (`Final-Marathon-Report.pdf`).
+- `reports`: Contains the `Final-Marathon-Report.pdf` and `archived-reports`/ subfolder with historic predecessor reports that show the progression and changes during this project.
 - `capstone-project-team-c.Rproj`: The RStudio Project file. Opening this file sets the project root directory.
 - `README.md`: Project overview and instructions.
 - `rev.lock`: Records the exact R package versions used to ensure reproducibility.
@@ -49,11 +49,16 @@ This project uses the **renv** package to ensure a reproducible R environment.
 1. Clone the repository
 2. Open the project - Open `capstone-project-team-c.Rproj` in RStudio (this sets the project root)
 3. Restore the project’s R package environment:
-        ```install.packages("renv")  # if not already installed
-        renv::restore()```
-4. Open the `notebooks` folder
-5. Select `final-marathon.Rmd`
-6. Knit or run the .Rmd to reproduce the analysis.
+   
+```
+install.packages("renv")  # if not already installed
+
+renv::restore()
+```
+   
+5. Open the `notebooks` folder
+6. Select `final-marathon.Rmd`
+7. Knit or run the .Rmd to reproduce the analysis.
 
 ## Team Members
 - Krisha Bugajski-Sharp
